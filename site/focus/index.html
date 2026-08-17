@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+<script src="cluster_callback.js"></script>
+    
+    <style>
+        .red-cluster, .blue-cluster {
+            display: flex !important; align-items: center !important; justify-content: center !important;
+            border-radius: 50% !important; color: white !important; font-weight: 900 !important;
+            border: 2px solid white !important; box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
+        }
+        .red-cluster { background-color: #DC3232 !important; }
+        .blue-cluster { background-color: #0066CC !important; }
+    </style>
+    
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_b5c1a18312c83bfd13d257d168d525ce {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css"/>
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_b5c1a18312c83bfd13d257d168d525ce" ></div>
+        
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Route each row to the correct live cluster by its color field
+        // (row[3]) instead of assuming everything belongs to one cluster.
+        // The variable names below are injected from Python at build time
+        // via get_name(), so they always match this specific export.
+        var embassyClusterByColor = {
+            "#DC3232": fast_marker_cluster_431e83bf2ad92c8d011c0aeb8703baa8,
+            "#0066CC": fast_marker_cluster_66cbab8ce6a61d7b75ae9e89634c3c17
+        };
+
+        fetch("data.json")
+          .then(response => response.json())
+          .then(function(rows) {
+              // Build markers grouped by [category][color] up front, then
+              // hand each group to addLayers() in bulk. Leaflet.markercluster
+              // rebuilds its spatial index on every individual addLayer/addTo
+              // call, so adding 100k+ markers one at a time freezes the tab
+              // for minutes (worse on iPad); addLayers() bulk-loads in a
+              // single pass, and the same grouping doubles as the data the
+              // category filter panel toggles on and off.
+              var markersByCategory = {};
+
+              for (var i = 0; i < rows.length; i++) {
+                  var row = rows[i];
+                  var color = row[3];
+                  var category = row[4] || "Other";
+                  if (!embassyClusterByColor.hasOwnProperty(color)) {
+                      console.warn("No cluster mapped for color:", color);
+                      continue;
+                  }
+                  if (!markersByCategory[category]) {
+                      markersByCategory[category] = {};
+                  }
+                  if (!markersByCategory[category][color]) {
+                      markersByCategory[category][color] = [];
+                  }
+                  markersByCategory[category][color].push(embassyCallback(row));
+              }
+
+              // Initial load: every category visible.
+              for (var category in markersByCategory) {
+                  for (var color in markersByCategory[category]) {
+                      embassyClusterByColor[color].addLayers(markersByCategory[category][color]);
+                  }
+              }
+
+              // Floating checkbox panel, one row per category, all checked.
+              var panel = L.control({position: 'topright'});
+              panel.onAdd = function() {
+                  var div = L.DomUtil.create('div', 'embassy-category-filter');
+                  div.style.background = 'white';
+                  div.style.padding = '8px 10px';
+                  div.style.maxHeight = '260px';
+                  div.style.overflowY = 'auto';
+                  div.style.fontSize = '13px';
+                  div.style.lineHeight = '1.5';
+                  div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+                  div.style.borderRadius = '4px';
+                  var html = '<div style="font-weight:700;margin-bottom:6px;">Categories</div>';
+                  Object.keys(markersByCategory).sort().forEach(function(cat) {
+                      html += '<label style="display:block;white-space:nowrap;">'
+                            + '<input type="checkbox" checked class="embassy-cat-toggle" data-category="'
+                            + cat.replace(/"/g, '&quot;') + '"> ' + cat + '</label>';
+                  });
+                  div.innerHTML = html;
+                  L.DomEvent.disableClickPropagation(div);
+                  return div;
+              };
+              panel.addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+
+              document.querySelectorAll('.embassy-cat-toggle').forEach(function(box) {
+                  box.addEventListener('change', function() {
+                      var byColor = markersByCategory[this.getAttribute('data-category')];
+                      for (var color in byColor) {
+                          var target = embassyClusterByColor[color];
+                          if (this.checked) {
+                              target.addLayers(byColor[color]);
+                          } else {
+                              target.removeLayers(byColor[color]);
+                          }
+                      }
+                  });
+              });
+          })
+          .catch(function(err) {
+              console.error("JSON load failed:", err);
+          });
+    });
+    </script>
+    
+</body>
+<script>
+    
+    
+            var map_b5c1a18312c83bfd13d257d168d525ce = L.map(
+                "map_b5c1a18312c83bfd13d257d168d525ce",
+                {
+                    center: [37.16, -94.73],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 8,
+  "zoomControl": true,
+  "preferCanvas": true,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_443412d5353428649f2b34f5f86d2a37 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_443412d5353428649f2b34f5f86d2a37.addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+        
+    
+            L.control.fullscreen(
+                {
+  "position": "topleft",
+  "title": "Full Screen",
+  "titleCancel": "Exit Full Screen",
+  "forceSeparateButton": false,
+}
+            ).addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+        
+    
+            var fast_marker_cluster_431e83bf2ad92c8d011c0aeb8703baa8 = (function(){
+                var callback = embassyCallback;
+
+                var data = [];
+                var cluster = L.markerClusterGroup({
+  "disableClusteringAtZoom": 11,
+});
+                cluster.options.iconCreateFunction =
+                    function(c) {
+                    var n = c.getChildCount();
+                    return L.divIcon({
+                        html: '<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">' + n + '</div>',
+                        className: 'red-cluster',
+                        iconSize: L.point(32, 32)
+                    });
+                };
+
+                for (var i = 0; i < data.length; i++) {
+                    var row = data[i];
+                    var marker = callback(row);
+                    marker.addTo(cluster);
+                }
+
+                cluster.addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+                return cluster;
+            })();
+        
+    
+            fast_marker_cluster_431e83bf2ad92c8d011c0aeb8703baa8.addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+        
+    
+            var fast_marker_cluster_66cbab8ce6a61d7b75ae9e89634c3c17 = (function(){
+                var callback = embassyCallback;
+
+                var data = [];
+                var cluster = L.markerClusterGroup({
+  "disableClusteringAtZoom": 11,
+});
+                cluster.options.iconCreateFunction =
+                    function(c) {
+                    var n = c.getChildCount();
+                    return L.divIcon({
+                        html: '<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">' + n + '</div>',
+                        className: 'blue-cluster',
+                        iconSize: L.point(36, 36)
+                    });
+                };
+
+                for (var i = 0; i < data.length; i++) {
+                    var row = data[i];
+                    var marker = callback(row);
+                    marker.addTo(cluster);
+                }
+
+                cluster.addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+                return cluster;
+            })();
+        
+    
+            fast_marker_cluster_66cbab8ce6a61d7b75ae9e89634c3c17.addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+        
+    
+            var layer_control_c4784efba605a6e123d76aa755f238a1_layers = {
+                base_layers : {
+                    "cartodbpositron" : tile_layer_443412d5353428649f2b34f5f86d2a37,
+                },
+                overlays :  {
+                    "Prospects" : fast_marker_cluster_431e83bf2ad92c8d011c0aeb8703baa8,
+                    "Clients" : fast_marker_cluster_66cbab8ce6a61d7b75ae9e89634c3c17,
+                },
+            };
+            let layer_control_c4784efba605a6e123d76aa755f238a1 = L.control.layers(
+                layer_control_c4784efba605a6e123d76aa755f238a1_layers.base_layers,
+                layer_control_c4784efba605a6e123d76aa755f238a1_layers.overlays,
+                {
+  "position": "topright",
+  "collapsed": false,
+  "autoZIndex": true,
+}
+            ).addTo(map_b5c1a18312c83bfd13d257d168d525ce);
+
+        
+</script>
+</html>
