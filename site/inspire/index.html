@@ -387,6 +387,12 @@
     color:var(--gray-text);
     line-height:1.4;
   }
+  .product-fee{
+    font-size:0.72rem;
+    font-weight:700;
+    color:var(--blue);
+    line-height:1.3;
+  }
   .rating-row{display:flex; align-items:center; gap:5px; font-size:9.5px;}
   .rating-label{width:52px; flex:none; color:var(--gray-text); text-transform:uppercase; letter-spacing:0.03em;}
   .rating-track{display:flex; gap:2px; flex:1;}
@@ -815,6 +821,7 @@
     html += '<div class="product-name">' + opt.name + '</div>';
     if (opt.category) html += '<div class="product-sub">' + opt.category + '</div>';
     if (opt.decoration_lean) html += '<div class="product-sub">' + opt.decoration_lean + '</div>';
+    if (opt.fee_note) html += '<div class="product-fee">' + opt.fee_note + '</div>';
     if (typeof opt.hand_feel === "number") {
       html += ratingBar("Feel", opt.hand_feel) + ratingBar("Function", opt.functionality) + ratingBar("Durable", opt.durability) + ratingBar("Polish", opt.professionalism);
     }
