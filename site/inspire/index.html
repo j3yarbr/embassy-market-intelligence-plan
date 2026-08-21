@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inspire — Embassy Market Intelligence</title>
+<style>
+  :root{
+    --navy:#1f3752;
+    --navy-deep:#152840;
+    --blue:#2f6fed;
+    --blue-soft:#eaf1fe;
+    --gray-bg:#f4f6f9;
+    --gray-line:#e2e6ec;
+    --gray-text:#5b6572;
+    --white:#ffffff;
+    --live:#1f8a4c;
+    --live-bg:#e7f6ed;
+    --dev:#b5790a;
+    --dev-bg:#fdf1dc;
+    --warn:#b3532e;
+    --warn-bg:#faeae4;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--gray-bg);
+    color:var(--navy-deep);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+
+  header{
+    background:var(--navy-deep);
+    color:var(--white);
+    padding:16px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    position:sticky;
+    top:0;
+    z-index:10;
+  }
+  header .back{
+    font-size:13px;
+    text-decoration:none;
+    color:#b9c6d6;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    white-space:nowrap;
+  }
+  header .back:hover{color:var(--white);}
+  header .brand{
+    font-weight:700;
+    letter-spacing:0.06em;
+    font-size:14px;
+    text-transform:uppercase;
+  }
+  header .brand span{color:#7ea6f2;}
+  header .spacer{width:56px;}
+
+  .progress-wrap{
+    max-width:680px;
+    margin:0 auto;
+    padding:14px 20px 0;
+  }
+  .progress-track{
+    height:5px;
+    border-radius:3px;
+    background:var(--gray-line);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--blue);
+    border-radius:3px;
+    transition:width 0.25s ease;
+  }
+  .progress-label{
+    font-size:11.5px;
+    color:var(--gray-text);
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    margin-top:8px;
+    font-weight:600;
+  }
+
+  main{
+    max-width:680px;
+    margin:0 auto;
+    padding:20px 20px 140px;
+  }
+
+  .step{display:none;}
+  .step.active{display:block; animation:fadein 0.2s ease;}
+  @keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .step h1{
+    font-size:1.7rem;
+    margin:8px 0 6px;
+    color:var(--navy-deep);
+  }
+  .step .dek{
+    color:var(--gray-text);
+    font-size:0.98rem;
+    line-height:1.5;
+    margin:0 0 28px;
+    max-width:52ch;
+  }
+
+  .field{margin-bottom:30px;}
+  .field-label{
+    font-weight:700;
+    font-size:0.95rem;
+    color:var(--navy-deep);
+    margin-bottom:4px;
+  }
+  .field-optional{
+    font-weight:400;
+    color:var(--gray-text);
+    font-size:0.82rem;
+  }
+  .field-hint{
+    color:var(--gray-text);
+    font-size:0.85rem;
+    margin-bottom:12px;
+  }
+
+  .card-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+    gap:10px;
+  }
+  .tap-card{
+    background:var(--white);
+    border:1.5px solid var(--gray-line);
+    border-radius:12px;
+    padding:16px 14px;
+    text-align:left;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:0.92rem;
+    font-weight:600;
+    color:var(--navy-deep);
+    min-height:56px;
+    display:flex;
+    align-items:center;
+    transition:border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  }
+  .tap-card:hover{border-color:var(--blue);}
+  .tap-card.selected{
+    background:var(--blue);
+    border-color:var(--blue);
+    color:var(--white);
+  }
+
+  textarea, input[type="text"]{
+    width:100%;
+    font-family:inherit;
+    font-size:0.95rem;
+    color:var(--navy-deep);
+    background:var(--white);
+    border:1.5px solid var(--gray-line);
+    border-radius:10px;
+    padding:12px 14px;
+    resize:vertical;
+  }
+  textarea:focus, input[type="text"]:focus{outline:none; border-color:var(--blue);}
+  textarea{min-height:80px;}
+
+  .nav-bar{
+    position:fixed;
+    bottom:0; left:0; right:0;
+    background:var(--white);
+    border-top:1px solid var(--gray-line);
+    padding:14px 20px calc(14px + env(safe-area-inset-bottom));
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    z-index:10;
+  }
+  .nav-inner{
+    max-width:680px;
+    width:100%;
+    display:flex;
+    gap:10px;
+  }
+  .btn{
+    font-family:inherit;
+    font-size:0.95rem;
+    font-weight:700;
+    border-radius:10px;
+    padding:14px 20px;
+    cursor:pointer;
+    border:1.5px solid transparent;
+    min-height:48px;
+  }
+  .btn-back{
+    background:var(--white);
+    border-color:var(--gray-line);
+    color:var(--navy-deep);
+    flex:0 0 auto;
+  }
+  .btn-primary{
+    background:var(--blue);
+    color:var(--white);
+    flex:1;
+  }
+  .btn-primary:disabled{
+    background:#b9c9f5;
+    cursor:not-allowed;
+  }
+  .btn-ghost{
+    background:var(--white);
+    border-color:var(--gray-line);
+    color:var(--gray-text);
+    flex:1;
+  }
+
+  /* Intro */
+  .intro-icon{
+    width:56px; height:56px;
+    border-radius:14px;
+    background:var(--blue-soft);
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px;
+    margin-bottom:18px;
+  }
+  .intro-list{
+    display:flex; flex-direction:column; gap:10px;
+    margin:22px 0;
+  }
+  .intro-list div{
+    background:var(--white);
+    border:1px solid var(--gray-line);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:0.88rem;
+    color:var(--gray-text);
+    display:flex;
+    gap:10px;
+    align-items:baseline;
+  }
+  .intro-list b{color:var(--navy-deep); flex:0 0 20px;}
+
+  /* Recommendations */
+  .conf-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:0.78rem;
+    font-weight:700;
+    padding:5px 12px;
+    border-radius:20px;
+    margin-bottom:18px;
+  }
+  .conf-badge.ok{background:var(--live-bg); color:var(--live);}
+  .conf-badge.routine{background:var(--dev-bg); color:var(--dev);}
+  .conf-badge.judgment{background:var(--warn-bg); color:var(--warn);}
+
+  .lookup-key{
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+    font-size:11.5px;
+    color:var(--gray-text);
+    background:var(--white);
+    border:1px solid var(--gray-line);
+    border-radius:8px;
+    padding:8px 12px;
+    margin-bottom:20px;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+
+  .rec-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  @media (max-width:520px){ .rec-grid{grid-template-columns:1fr;} }
+
+  .rec-card{
+    background:var(--white);
+    border:1px solid var(--gray-line);
+    border-radius:12px;
+    padding:16px 18px;
+  }
+  .rec-card.wide{grid-column:1 / -1;}
+  .rec-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--gray-text);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .rec-value{
+    font-size:1.02rem;
+    font-weight:700;
+    color:var(--navy-deep);
+    line-height:1.35;
+  }
+  .rec-value.small{
+    font-size:0.9rem;
+    font-weight:400;
+    color:var(--gray-text);
+    line-height:1.5;
+  }
+
+  .budget-touch{
+    background:var(--blue-soft);
+    border:1px solid #c7dafc;
+    border-radius:12px;
+    padding:16px 18px;
+    margin:20px 0;
+  }
+  .budget-touch .rec-label{color:var(--blue);}
+  .budget-touch input{margin-top:8px;}
+
+  footer.disclaimer{
+    font-size:0.78rem;
+    color:var(--gray-text);
+    line-height:1.5;
+    padding-top:8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="../">&larr; Suite</a>
+  <div class="brand">EMBASSY <span>INSPIRE</span></div>
+  <div class="spacer"></div>
+</header>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="progress-label" id="progressLabel">Intro</div>
+</div>
+
+<main>
+
+  <!-- Step 0: Intro -->
+  <section class="step active" data-step="0">
+    <div class="intro-icon">🧭</div>
+    <h1>Let's find the right fit.</h1>
+    <p class="dek">A few quick questions about who this is for and why — Inspire pulls together a program, garment, fabric, and decoration recommendation instead of a catalog scroll. Nothing here is a hard rule; every suggestion is a starting point you can adjust.</p>
+    <div class="intro-list">
+      <div><b>1</b> Business context — what's the problem you're solving?</div>
+      <div><b>2</b> Brand &amp; audience — who's it for, how should it feel?</div>
+      <div><b>3</b> Environment &amp; quantity — where does it live, how many?</div>
+      <div><b>4</b> Your recommendation — program, garment, fabric, decoration.</div>
+    </div>
+  </section>
+
+  <!-- Step 1: Business Context -->
+  <section class="step" data-step="1">
+    <h1>Business context</h1>
+    <p class="dek">Start with why this program exists.</p>
+
+    <div class="field">
+      <div class="field-label">What's the business problem?</div>
+      <div class="field-hint">This drives the core recommendation.</div>
+      <div class="card-grid" id="grid-businessProblem"></div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Where are you in the relationship? <span class="field-optional">— optional</span></div>
+      <div class="card-grid">
+        <button class="tap-card" data-field="relationshipStage" data-value="First Conversation">First Conversation</button>
+        <button class="tap-card" data-field="relationshipStage" data-value="Ongoing Client">Ongoing Client</button>
+        <button class="tap-card" data-field="relationshipStage" data-value="Re-engaging">Re-engaging</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Notes <span class="field-optional">— optional</span></div>
+      <textarea id="notesInput" placeholder="Anything specific about this client or ask..."></textarea>
+    </div>
+  </section>
+
+  <!-- Step 2: Brand & Audience -->
+  <section class="step" data-step="2">
+    <h1>Brand &amp; audience</h1>
+    <p class="dek">Who's wearing this, and how should it feel.</p>
+
+    <div class="field">
+      <div class="field-label">What industry?</div>
+      <div class="card-grid" id="grid-industry"></div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Who's the audience?</div>
+      <div class="field-hint">Pre-filled from the business problem — change it if this one's different.</div>
+      <div class="card-grid" id="grid-audience"></div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">How should this feel?</div>
+      <div class="field-hint">Brand position — sets the budget and quality tier.</div>
+      <div class="card-grid" id="grid-brandPosition"></div>
+    </div>
+  </section>
+
+  <!-- Step 3: Environment & Quantity -->
+  <section class="step" data-step="3">
+    <h1>Environment &amp; quantity</h1>
+    <p class="dek">Where this gets worn, and roughly how much of it.</p>
+
+    <div class="field">
+      <div class="field-label">What environment will this live in?</div>
+      <div class="card-grid" id="grid-environment"></div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Roughly how many pieces? <span class="field-optional">— optional</span></div>
+      <div class="card-grid">
+        <button class="tap-card" data-field="quantityBand" data-value="1–24">1–24</button>
+        <button class="tap-card" data-field="quantityBand" data-value="25–99">25–99</button>
+        <button class="tap-card" data-field="quantityBand" data-value="100–249">100–249</button>
+        <button class="tap-card" data-field="quantityBand" data-value="250+">250+</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Rough budget range? <span class="field-optional">— optional, just to frame the conversation</span></div>
+      <input type="text" id="budgetRoughInput" placeholder="e.g. $15–25 per piece">
+    </div>
+  </section>
+
+  <!-- Step 4: Recommendations -->
+  <section class="step" data-step="4">
+    <h1>Your recommendation</h1>
+    <div id="confBadgeWrap"></div>
+    <div class="lookup-key" id="lookupKey"></div>
+
+    <div class="rec-grid" id="recGrid"></div>
+
+    <div class="budget-touch">
+      <div class="rec-label">Confirm the budget</div>
+      <div class="rec-value small">Now that there's a real recommendation on the table — does the number change, or does the rough range from before still hold?</div>
+      <input type="text" id="budgetFirmInput" placeholder="e.g. confirmed at $20/piece, or note if it shifted">
+    </div>
+
+    <footer class="disclaimer" id="disclaimer"></footer>
+  </section>
+
+</main>
+
+<div class="nav-bar">
+  <div class="nav-inner">
+    <button class="btn btn-back" id="backBtn">&larr; Back</button>
+    <button class="btn btn-primary" id="nextBtn">Start &rarr;</button>
+    <button class="btn btn-ghost" id="restartBtn" style="display:none;">Start Over</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STEP_NAMES = ["Intro", "Business Context", "Brand & Audience", "Environment & Quantity", "Recommendation"];
+  var state = {
+    businessProblem: null,
+    relationshipStage: null,
+    notes: "",
+    industry: null,
+    audience: null,
+    brandPosition: null,
+    environment: null,
+    quantityBand: null,
+    budgetRough: ""
+  };
+  var current = 0;
+  var data = null;
+
+  var steps = document.querySelectorAll(".step");
+  var backBtn = document.getElementById("backBtn");
+  var nextBtn = document.getElementById("nextBtn");
+  var restartBtn = document.getElementById("restartBtn");
+  var progressFill = document.getElementById("progressFill");
+  var progressLabel = document.getElementById("progressLabel");
+
+  fetch("data.json").then(function(r){ return r.json(); }).then(function(json){
+    data = json;
+    buildGrid("grid-businessProblem", data.business_problem, "name", "businessProblem", onBusinessProblemChange);
+    buildGrid("grid-industry", data.industry, "name", "industry");
+    buildGrid("grid-audience", data.audience, "name", "audience");
+    buildGrid("grid-brandPosition", data.brand_position, "name", "brandPosition");
+    buildGrid("grid-environment", data.environment, "name", "environment");
+    render();
+  });
+
+  function buildGrid(containerId, items, nameKey, field, onChange){
+    var el = document.getElementById(containerId);
+    items.forEach(function(item){
+      var btn = document.createElement("button");
+      btn.className = "tap-card";
+      btn.textContent = item[nameKey];
+      btn.dataset.field = field;
+      btn.dataset.value = item[nameKey];
+      btn.addEventListener("click", function(){
+        selectValue(field, item[nameKey]);
+        if (onChange) onChange(item);
+      });
+      el.appendChild(btn);
+    });
+  }
+
+  function onBusinessProblemChange(item){
+    // pre-fill default audience, but let the user override it
+    var aud = data.audience.find(function(a){ return a.audience_id === item.default_audience_id; });
+    if (aud) selectValue("audience", aud.name);
+  }
+
+  function selectValue(field, value){
+    state[field] = value;
+    document.querySelectorAll('[data-field="' + field + '"]').forEach(function(btn){
+      btn.classList.toggle("selected", btn.dataset.value === value);
+    });
+    updateNextEnabled();
+  }
+
+  document.getElementById("notesInput").addEventListener("input", function(e){ state.notes = e.target.value; });
+  document.getElementById("budgetRoughInput").addEventListener("input", function(e){ state.budgetRough = e.target.value; });
+
+  function updateNextEnabled(){
+    var required = { 1: "businessProblem", 2: "brandPosition", 3: "environment" };
+    var req = required[current];
+    if (current === 2 && (!state.industry || !state.brandPosition)) { nextBtn.disabled = true; return; }
+    if (req && !state[req]) { nextBtn.disabled = true; return; }
+    nextBtn.disabled = false;
+  }
+
+  backBtn.addEventListener("click", function(){
+    if (current > 0) { current--; render(); }
+  });
+  nextBtn.addEventListener("click", function(){
+    if (current < 4) { current++; render(); }
+    if (current === 4) computeRecommendation();
+  });
+  restartBtn.addEventListener("click", function(){
+    current = 0;
+    Object.keys(state).forEach(function(k){ state[k] = (k === "notes" || k === "budgetRough") ? "" : null; });
+    document.querySelectorAll(".tap-card.selected").forEach(function(b){ b.classList.remove("selected"); });
+    document.getElementById("notesInput").value = "";
+    document.getElementById("budgetRoughInput").value = "";
+    document.getElementById("budgetFirmInput").value = "";
+    render();
+  });
+
+  function render(){
+    steps.forEach(function(s){ s.classList.toggle("active", Number(s.dataset.step) === current); });
+    progressFill.style.width = (current / 4 * 100) + "%";
+    progressLabel.textContent = "Step " + current + " of 4 — " + STEP_NAMES[current];
+    backBtn.style.visibility = current === 0 ? "hidden" : "visible";
+    nextBtn.style.display = current === 4 ? "none" : "block";
+    restartBtn.style.display = current === 4 ? "block" : "none";
+    nextBtn.textContent = current === 0 ? "Start →" : (current === 3 ? "See Recommendation →" : "Next →");
+    updateNextEnabled();
+    window.scrollTo(0, 0);
+  }
+
+  function findRule(list, matchFn){
+    return list.find(matchFn) || null;
+  }
+
+  function confBucket(conf){
+    if (!conf) return "judgment";
+    if (conf.indexOf("confirmed") === 0) return "ok";
+    if (conf.indexOf("routine pattern") !== -1) return "routine";
+    return "judgment";
+  }
+  var confLabels = {
+    ok: "✓ Confirmed by Matt",
+    routine: "◐ Draft — routine pattern, low risk",
+    judgment: "◑ Draft — genuine judgment call, not yet reviewed"
+  };
+
+  function computeRecommendation(){
+    var bp = data.business_problem.find(function(b){ return b.name === state.businessProblem; });
+    var industryRule = findRule(data.bp_industry_rule, function(r){
+      return r.business_problem === state.businessProblem && r.industry === state.industry;
+    });
+    var envRule = findRule(data.bp_environment_rule, function(r){
+      return r.brand_position === state.brandPosition && r.environment === state.environment;
+    });
+
+    var lookupKey = [state.businessProblem, state.industry, state.brandPosition, state.environment].join(" · ");
+    document.getElementById("lookupKey").textContent = "LookupKey: " + lookupKey;
+
+    var bucket = confBucket(industryRule && industryRule.confidence);
+    document.getElementById("confBadgeWrap").innerHTML =
+      '<span class="conf-badge ' + bucket + '">' + confLabels[bucket] + '</span>';
+
+    var program = (industryRule && industryRule.program_pivot) ||
+      (data.recommended_program.find(function(p){ return p.business_problem_id === (bp && bp.business_problem_id); }) || {}).name ||
+      "—";
+
+    var hasApparelOverride = industryRule && industryRule.apparel_lean;
+    var garment = hasApparelOverride ? industryRule.apparel_lean : (envRule ? envRule.garment_tier : "—");
+    var fabric = envRule ? envRule.fabric : "—";
+    var decoration = hasApparelOverride ? "See garment recommendation" : (envRule ? envRule.decoration_method : "—");
+    var hardgoods = (industryRule && industryRule.hardgoods_lean) || "—";
+
+    var justificationParts = [];
+    if (industryRule && industryRule.hardgoods_lean) justificationParts.push(industryRule.hardgoods_lean);
+    if (industryRule && industryRule.decoration_lean) justificationParts.push(industryRule.decoration_lean);
+    var justification = justificationParts.length ? justificationParts.join(" ") : "No specific reasoning recorded for this combination yet.";
+
+    var industryFavorsDifferentDecoration = industryRule && industryRule.decoration_lean && envRule &&
+      industryRule.decoration_lean.toLowerCase().indexOf(envRule.decoration_method.toLowerCase()) !== 0;
+
+    var alternative = "No flagged alternative — this is the default combination.";
+    if (industryFavorsDifferentDecoration && !hasApparelOverride) {
+      alternative = "Industry nudge on decoration: " + industryRule.decoration_lean;
+    } else if (hasApparelOverride) {
+      alternative = "This industry pivots the usual garment call for " + state.businessProblem + " — see the note on Garment Recommendation for the reasoning.";
+    }
+
+    var cards = [
+      ["Recommended Program", program],
+      ["Budget Tier", state.brandPosition + (state.budgetRough ? " (" + state.budgetRough + ")" : "")],
+      ["Garment Recommendation", garment],
+      ["Fabric Recommendation", fabric],
+      ["Decoration Method", decoration],
+      ["Hardgoods Category", hardgoods],
+    ];
+
+    var html = cards.map(function(c){
+      return '<div class="rec-card"><div class="rec-label">' + c[0] + '</div><div class="rec-value">' + c[1] + '</div></div>';
+    }).join("");
+    html += '<div class="rec-card wide"><div class="rec-label">Business Justification</div><div class="rec-value small">' + justification + '</div></div>';
+    html += '<div class="rec-card wide"><div class="rec-label">Alternative Solution</div><div class="rec-value small">' + alternative + '</div></div>';
+    document.getElementById("recGrid").innerHTML = html;
+
+    document.getElementById("disclaimer").textContent =
+      "Every default here — decoration method especially — is a soft suggestion, never a hard rule. Anything can be manually overridden. Draft rows haven't been reviewed by Matt yet; treat them as a starting point for the conversation, not a final answer.";
+  }
+
+})();
+</script>
+
+</body>
+</html>

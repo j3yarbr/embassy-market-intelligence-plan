@@ -1,0 +1,844 @@
+{
+  "business_problem": [
+    {
+      "business_problem_id": 1,
+      "name": "Uniform Program",
+      "default_audience_id": 1
+    },
+    {
+      "business_problem_id": 2,
+      "name": "Recognition",
+      "default_audience_id": 1
+    },
+    {
+      "business_problem_id": 3,
+      "name": "Recruiting",
+      "default_audience_id": 3
+    },
+    {
+      "business_problem_id": 4,
+      "name": "Retention",
+      "default_audience_id": 1
+    },
+    {
+      "business_problem_id": 5,
+      "name": "Trade Show",
+      "default_audience_id": 3
+    },
+    {
+      "business_problem_id": 6,
+      "name": "Fundraiser",
+      "default_audience_id": 2
+    }
+  ],
+  "audience": [
+    {
+      "audience_id": 1,
+      "name": "Employees"
+    },
+    {
+      "audience_id": 2,
+      "name": "Customers"
+    },
+    {
+      "audience_id": 3,
+      "name": "Prospects"
+    }
+  ],
+  "industry": [
+    {
+      "industry_id": 1,
+      "name": "Professional Services"
+    },
+    {
+      "industry_id": 2,
+      "name": "Industrial"
+    },
+    {
+      "industry_id": 3,
+      "name": "Construction & Trades"
+    },
+    {
+      "industry_id": 4,
+      "name": "Education"
+    },
+    {
+      "industry_id": 5,
+      "name": "Healthcare"
+    },
+    {
+      "industry_id": 6,
+      "name": "Faith & Nonprofit"
+    },
+    {
+      "industry_id": 7,
+      "name": "Retail & Hospitality"
+    },
+    {
+      "industry_id": 8,
+      "name": "Technology"
+    }
+  ],
+  "environment": [
+    {
+      "environment_id": 1,
+      "name": "Office"
+    },
+    {
+      "environment_id": 2,
+      "name": "Outdoor"
+    },
+    {
+      "environment_id": 3,
+      "name": "Manufacturing"
+    },
+    {
+      "environment_id": 4,
+      "name": "Hospitality"
+    },
+    {
+      "environment_id": 5,
+      "name": "Athletic"
+    }
+  ],
+  "brand_position": [
+    {
+      "brand_position_id": 1,
+      "name": "Budget"
+    },
+    {
+      "brand_position_id": 2,
+      "name": "Professional"
+    },
+    {
+      "brand_position_id": 3,
+      "name": "Premium"
+    },
+    {
+      "brand_position_id": 4,
+      "name": "Athletic"
+    },
+    {
+      "brand_position_id": 5,
+      "name": "Retail"
+    }
+  ],
+  "recommended_program": [
+    {
+      "program_id": 1,
+      "name": "Uniform Program Solution",
+      "business_problem_id": 1
+    },
+    {
+      "program_id": 2,
+      "name": "Recognition Solution",
+      "business_problem_id": 2
+    },
+    {
+      "program_id": 3,
+      "name": "Recruiting Solution",
+      "business_problem_id": 3
+    },
+    {
+      "program_id": 4,
+      "name": "Retention Solution",
+      "business_problem_id": 4
+    },
+    {
+      "program_id": 5,
+      "name": "Trade Show Solution",
+      "business_problem_id": 5
+    },
+    {
+      "program_id": 6,
+      "name": "Fundraiser Solution",
+      "business_problem_id": 6
+    }
+  ],
+  "bp_industry_rule": [
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Construction & Trades",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Richardson 112 or Carhartt beanie over a lifestyle-brand cap -- workwear credibility reads as competence on a jobsite",
+      "decoration_lean": "Embroidery over DTF -- daily wear needs to survive rougher handling",
+      "confidence": "confirmed -- Matt's own example, approved as-is"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Healthcare",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler -- NOT Headwear. Matt ruled out headwear as a category, then picked Tumbler as the starting high-probability default; framed as a default to expand from later, not the only valid answer.",
+      "decoration_lean": "Embroidery over DTF -- survives institutional laundering better",
+      "confidence": "confirmed -- headwear rejection and Tumbler default both Matt's"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Professional Services",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "golf and other suburban, affluent-activity items -- replaces the earlier generic 'polished cap' guess",
+      "decoration_lean": "Embroidery over DTF -- reads more premium",
+      "confidence": "confirmed -- hardgoods_lean corrected by Matt"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Industrial",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "durable, functional gear (insulated tumbler, work-adjacent tools) -- same workwear-credibility logic as Construction & Trades",
+      "decoration_lean": "Embroidery over DTF -- daily wear, same durability logic as Construction & Trades",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Education",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "practical, school-friendly items (tumbler, lanyard) -- approachable rather than corporate",
+      "decoration_lean": "Embroidery over DTF -- daily wear, staff-facing polish",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Faith & Nonprofit",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "modest, budget-conscious items (tote, tumbler) -- avoid anything that reads as extravagant for a mission-driven org",
+      "decoration_lean": "Embroidery over DTF -- daily wear durability",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Retail & Hospitality",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "practical, guest-facing-adjacent items -- nothing that gets in the way of customer interaction",
+      "decoration_lean": "Embroidery over DTF -- daily wear durability, though high staff turnover here might argue for a cheaper decoration method -- worth Matt's read",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Uniform Program",
+      "industry": "Technology",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "simple, modern, minimalist items -- avoid the generic corporate-cap look",
+      "decoration_lean": "Embroidery over DTF -- this is daily/laundered wear, not a one-off gift, so the durability logic applies even though Technology leans print-based elsewhere (see Recognition row below)",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Technology",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "tech-adjacent gift items (charging accessories, insulated tumbler) within the Gift Set category",
+      "decoration_lean": "Print-based methods (DTF / Sublimation / DTG / Screen Printing) over Embroidery -- Matt: 'tech feels like DTF, sublimation, DTG, or screen printing focus. keep in semi professional without losing identity and uniqueness.' Prompted expanding decoration_method beyond DTF/Embroidery in inspire_reference_data.json.",
+      "confidence": "confirmed -- decoration_lean corrected by Matt; hardgoods_lean not commented on, still a guess"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Construction & Trades",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "practical/rugged gift items over delicate ones -- a quality tumbler or multitool over glassware",
+      "decoration_lean": "Embroidery -- Matt: 'something elevated for their achievement.' Reasoning differs from the Uniform Program row (there it's laundering durability, here it's status/elevation) even though the conclusion is the same.",
+      "confidence": "confirmed -- decoration_lean corrected by Matt; hardgoods_lean not commented on, still a guess"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Professional Services",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "premium, refined gift items -- same golf/affluent-lifestyle lean as the Uniform Program row for this industry",
+      "decoration_lean": "Embroidery -- elevated, achievement-worthy, same reasoning as Construction & Trades",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Industrial",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "practical/rugged gift items -- same logic as Construction & Trades",
+      "decoration_lean": "Embroidery -- elevated for achievement",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Education",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "keepsake-style items (engraved tumbler, desk piece) -- something that lasts, matches a teaching-career milestone",
+      "decoration_lean": "Embroidery -- elevated for achievement",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Healthcare",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "practical, wellness-adjacent items (insulated tumbler, self-care item) -- fits a caregiving-industry audience",
+      "decoration_lean": "Embroidery -- elevated for achievement",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Faith & Nonprofit",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "modest, meaningful keepsake items -- humble rather than flashy, matches a mission-driven org's culture",
+      "decoration_lean": "Embroidery -- elevated for achievement, but kept modest rather than showy",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recognition",
+      "industry": "Retail & Hospitality",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "practical everyday items -- lower cost per recipient, since retail/hospitality recognition often runs at higher headcount (service anniversaries, etc.)",
+      "decoration_lean": "Embroidery leans elevated, but DTF may be more realistic at the volume/budget this industry's recognition programs usually run at -- genuinely unsure, worth Matt's read",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Professional Services",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, structured/premium style -- default Recruiting hardgoods (Backpack) refined for a polished first impression",
+      "decoration_lean": "Embroidery -- professional polish attracts talent",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Industrial",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, rugged/functional style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Construction & Trades",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, rugged/tool-adjacent style -- same workwear-credibility logic as elsewhere",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Education",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, approachable/friendly style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Healthcare",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, clean/practical style -- same restraint as the Uniform Program Healthcare row, don't over-brand",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Faith & Nonprofit",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, modest style -- mission-driven framing",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Retail & Hospitality",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack or tote, more casual style -- retail/hospitality recruiting often skews toward a younger candidate pool",
+      "decoration_lean": "DTF may land better than Embroidery here -- full-color graphics can read as more current to a younger, hourly-role-focused candidate pool. Genuine judgment call, not a routine application.",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Recruiting",
+      "industry": "Technology",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Backpack, modern/tech-forward style (laptop-friendly features)",
+      "decoration_lean": "Print-based methods over Embroidery -- same distinctiveness logic as Recognition x Technology, extended here since recruiting is also about first impression/identity",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Professional Services",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, premium/refined style -- default Retention hardgoods (Tumbler) refined per industry",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Industrial",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, rugged/functional style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Construction & Trades",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, rugged style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Education",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, warm/approachable style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Healthcare",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, wellness/practical style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Faith & Nonprofit",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, modest style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Retail & Hospitality",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, practical everyday style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Retention",
+      "industry": "Technology",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Tumbler, modern/minimalist style",
+      "decoration_lean": "Print-based methods over Embroidery -- same Technology pattern as Recognition/Recruiting",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Retail & Hospitality",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Mass-share giveaway items, like pens -- logo'd items meant to be handed out to booth visitors/guests in volume, not a single higher-value piece",
+      "decoration_lean": null,
+      "confidence": "confirmed -- Matt filled this in directly rather than giving a Program-pivot example; no Program pivot needed here after all"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Professional Services",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Mass-share giveaway items (pens, notepads) -- same booth-giveaway logic as the confirmed Retail & Hospitality row",
+      "decoration_lean": null,
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Industrial",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Practical giveaway tools (tape measures, multi-tools) -- industrial trade-show swag tends to skew functional rather than generic pens",
+      "decoration_lean": null,
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Construction & Trades",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Practical giveaway tools -- same logic as Industrial",
+      "decoration_lean": null,
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Education",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Mass-share giveaway items (pens, notepads)",
+      "decoration_lean": null,
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Healthcare",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Practical wellness-adjacent giveaways (hand sanitizer, small first-aid items) -- healthcare trade shows often skew toward practical health items over generic pens",
+      "decoration_lean": null,
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Faith & Nonprofit",
+      "program_pivot": null,
+      "apparel_lean": "Polos with Embroidery",
+      "hardgoods_lean": "Mass-share giveaway items (pens, tote bags) -- budget-conscious",
+      "decoration_lean": null,
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Trade Show",
+      "industry": "Technology",
+      "program_pivot": null,
+      "apparel_lean": "Polos -- decoration method for the polo itself may want to follow Technology's print-based lean instead of the Embroidery default used elsewhere in this Business Problem, worth Matt's read",
+      "hardgoods_lean": "Tech-adjacent mass giveaways (USB items, phone accessories) rather than plain pens",
+      "decoration_lean": null,
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Professional Services",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear (structured cap) or golf-adjacent items -- consistent with the affluent-suburban lean established for this industry elsewhere",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Industrial",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear, durable style",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Construction & Trades",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear, Richardson/Carhartt-style -- consistent with the workwear lean elsewhere",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Education",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear (spirit-wear style) or tote bags",
+      "decoration_lean": "DTF may fit better than Embroidery for colorful school spirit-wear items -- genuine judgment call",
+      "confidence": "guess, judgment call"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Healthcare",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "NOT Headwear -- following the same category-level pivot Matt confirmed for Uniform Program x Healthcare. Tumbler as the starting default here too, pending Matt's confirmation this transfers.",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, judgment call -- extrapolated from a confirmed rule in a different Business Problem, not itself confirmed"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Faith & Nonprofit",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear or tote bags -- budget-conscious, community-event framing",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Retail & Hospitality",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear or tote bags",
+      "decoration_lean": "Embroidery",
+      "confidence": "guess, routine pattern"
+    },
+    {
+      "business_problem": "Fundraiser",
+      "industry": "Technology",
+      "program_pivot": null,
+      "apparel_lean": null,
+      "hardgoods_lean": "Headwear is a less confident fit for a tech-industry fundraiser audience -- a tech-adjacent item (drinkware, small gadget accessory) may land better",
+      "decoration_lean": "Print-based methods over Embroidery -- same Technology pattern seen elsewhere",
+      "confidence": "guess, judgment call"
+    }
+  ],
+  "bp_environment_rule": [
+    {
+      "rule_id": 1,
+      "brand_position": "Budget",
+      "environment": "Office",
+      "garment_tier": "Event Tee",
+      "fabric": "Ringspun Cotton",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 2,
+      "brand_position": "Budget",
+      "environment": "Outdoor",
+      "garment_tier": "Event Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "fabric still bumped for durability; decoration REVERTED to DTF per Matt -- embroidery doesn't belong on a tee",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 3,
+      "brand_position": "Budget",
+      "environment": "Manufacturing",
+      "garment_tier": "Event Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "fabric still bumped for durability; decoration REVERTED to DTF per Matt -- embroidery doesn't belong on a tee",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 4,
+      "brand_position": "Budget",
+      "environment": "Hospitality",
+      "garment_tier": "Event Tee",
+      "fabric": "Ringspun Cotton",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 5,
+      "brand_position": "Budget",
+      "environment": "Athletic",
+      "garment_tier": "Event Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "fabric bumped, decoration DTF (normal for athletic wear)",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 6,
+      "brand_position": "Professional",
+      "environment": "Office",
+      "garment_tier": "Professional Polo",
+      "fabric": "Snag Resistant Performance Poly",
+      "decoration_method": "Embroidery",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 7,
+      "brand_position": "Professional",
+      "environment": "Outdoor",
+      "garment_tier": "Professional Polo",
+      "fabric": "Snag Resistant Performance Poly",
+      "decoration_method": "Embroidery",
+      "note": "already durable/embroidery, no change",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 8,
+      "brand_position": "Professional",
+      "environment": "Manufacturing",
+      "garment_tier": "Professional Polo",
+      "fabric": "Snag Resistant Performance Poly",
+      "decoration_method": "Embroidery",
+      "note": "already durable/embroidery, no change",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 9,
+      "brand_position": "Professional",
+      "environment": "Hospitality",
+      "garment_tier": "Professional Polo",
+      "fabric": "Snag Resistant Performance Poly",
+      "decoration_method": "Embroidery",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 10,
+      "brand_position": "Professional",
+      "environment": "Athletic",
+      "garment_tier": "Professional Polo",
+      "fabric": "Snag Resistant Performance Poly",
+      "decoration_method": "Embroidery",
+      "note": "already durable/embroidery, no change",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 11,
+      "brand_position": "Premium",
+      "environment": "Office",
+      "garment_tier": "Premium Polo / Quarter Zip",
+      "fabric": "Combed Ringspun / Performance",
+      "decoration_method": "Embroidery",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 12,
+      "brand_position": "Premium",
+      "environment": "Outdoor",
+      "garment_tier": "Premium Polo / Quarter Zip",
+      "fabric": "Combed Ringspun / Performance",
+      "decoration_method": "Embroidery",
+      "note": "already durable/embroidery, no change",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 13,
+      "brand_position": "Premium",
+      "environment": "Manufacturing",
+      "garment_tier": "Premium Polo / Quarter Zip",
+      "fabric": "Combed Ringspun / Performance",
+      "decoration_method": "Embroidery",
+      "note": "already durable/embroidery, no change",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 14,
+      "brand_position": "Premium",
+      "environment": "Hospitality",
+      "garment_tier": "Premium Polo / Quarter Zip",
+      "fabric": "Combed Ringspun / Performance",
+      "decoration_method": "Embroidery",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 15,
+      "brand_position": "Premium",
+      "environment": "Athletic",
+      "garment_tier": "Premium Polo / Quarter Zip",
+      "fabric": "Combed Ringspun / Performance",
+      "decoration_method": "Embroidery",
+      "note": "already durable/embroidery, no change",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 16,
+      "brand_position": "Athletic",
+      "environment": "Office",
+      "garment_tier": "Performance Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 17,
+      "brand_position": "Athletic",
+      "environment": "Outdoor",
+      "garment_tier": "Performance Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "resolved: DTF is the default; Embroidery stays technically available on every fabric/bucket as a manual override, just not the default here",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 18,
+      "brand_position": "Athletic",
+      "environment": "Manufacturing",
+      "garment_tier": "Performance Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "resolved: DTF is the default; Embroidery stays technically available on every fabric/bucket as a manual override, just not the default here",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 19,
+      "brand_position": "Athletic",
+      "environment": "Hospitality",
+      "garment_tier": "Performance Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 20,
+      "brand_position": "Athletic",
+      "environment": "Athletic",
+      "garment_tier": "Performance Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 21,
+      "brand_position": "Retail",
+      "environment": "Office",
+      "garment_tier": "Triblend Tee",
+      "fabric": "Triblend",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 22,
+      "brand_position": "Retail",
+      "environment": "Outdoor",
+      "garment_tier": "Triblend Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "fabric still bumped for durability; decoration REVERTED to DTF per Matt -- embroidery doesn't belong on a tee",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 23,
+      "brand_position": "Retail",
+      "environment": "Manufacturing",
+      "garment_tier": "Triblend Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "fabric still bumped for durability; decoration REVERTED to DTF per Matt -- embroidery doesn't belong on a tee",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 24,
+      "brand_position": "Retail",
+      "environment": "Hospitality",
+      "garment_tier": "Triblend Tee",
+      "fabric": "Triblend",
+      "decoration_method": "DTF",
+      "note": "baseline, unchanged",
+      "status": "confirmed"
+    },
+    {
+      "rule_id": 25,
+      "brand_position": "Retail",
+      "environment": "Athletic",
+      "garment_tier": "Triblend Tee",
+      "fabric": "Moisture Wicking Poly",
+      "decoration_method": "DTF",
+      "note": "fabric bumped, decoration DTF (normal for athletic wear)",
+      "status": "confirmed"
+    }
+  ]
+}
