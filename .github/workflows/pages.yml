@@ -25,6 +25,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Write version marker
+        run: echo "{\"sha\":\"${GITHUB_SHA}\",\"deployed_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > ./site/version.json
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
