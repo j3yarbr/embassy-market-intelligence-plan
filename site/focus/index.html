@@ -47,6 +47,44 @@
                 margin: 0;
                 padding: 0;
             }
+            body {
+                display: flex;
+                flex-direction: column;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            }
+            header.embassy-header {
+                background: #152840;
+                color: #ffffff;
+                padding: 14px 20px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                flex: 0 0 auto;
+            }
+            header.embassy-header .back {
+                font-size: 13px;
+                text-decoration: none;
+                color: #b9c6d6;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                white-space: nowrap;
+            }
+            header.embassy-header .back:hover { color: #ffffff; }
+            header.embassy-header .brand {
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                font-size: 14px;
+                text-transform: uppercase;
+            }
+            header.embassy-header .brand span { color: #7ea6f2; }
+            header.embassy-header .spacer { width: 56px; }
+            .map-wrap {
+                flex: 1 1 auto;
+                min-height: 0;
+                position: relative;
+            }
             </style>
 
             <style>#map {
@@ -72,10 +110,15 @@
 </head>
 <body>
 
+    <header class="embassy-header">
+      <a class="back" href="../">&larr; Suite</a>
+      <div class="brand">EMBASSY <span>FOCUS</span></div>
+      <div class="spacer"></div>
+    </header>
 
-    <a href="../" style="position:fixed;bottom:20px;left:20px;z-index:1000;background:#152840;color:#fff;font:600 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-decoration:none;padding:10px 16px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.25);">&larr; Suite</a>
-
+    <div class="map-wrap">
             <div class="folium-map" id="map_b5c1a18312c83bfd13d257d168d525ce" ></div>
+    </div>
 
 
     <script>
