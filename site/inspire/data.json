@@ -236,7 +236,8 @@
     },
     {
       "decoration_method_id": 2,
-      "name": "Embroidery"
+      "name": "Embroidery",
+      "fee_note": "$30 one-time digitizing fee (per logo/design) + $5 per piece"
     },
     {
       "decoration_method_id": 3,
@@ -260,22 +261,26 @@
     {
       "accessory_id": 2,
       "name": "Gift Set",
-      "category": "Hardgoods"
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
     },
     {
       "accessory_id": 3,
       "name": "Backpack",
-      "category": "Hardgoods"
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
     },
     {
       "accessory_id": 4,
       "name": "Tumbler",
-      "category": "Hardgoods"
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
     },
     {
       "accessory_id": 5,
       "name": "Swag Bag",
-      "category": "Hardgoods"
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
     }
   ],
   "bp_industry_rule": [
@@ -339,8 +344,8 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "practical, guest-facing-adjacent items -- nothing that gets in the way of customer interaction",
-      "decoration_lean": "Embroidery over DTF -- daily wear durability, though high staff turnover here might argue for a cheaper decoration method -- worth Matt's read",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "DTF over Embroidery -- Matt confirmed: high staff turnover in this industry makes the cheaper, no-digitizing-fee decoration method the right default; part of a consistent Retail & Hospitality-wide lean (see Recognition and Recruiting rows), not a one-off.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Uniform Program",
@@ -348,8 +353,8 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "simple, modern, minimalist items -- avoid the generic corporate-cap look",
-      "decoration_lean": "Embroidery over DTF -- this is daily/laundered wear, not a one-off gift, so the durability logic applies even though Technology leans print-based elsewhere (see Recognition row below)",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "Embroidery over DTF -- confirmed: this is daily/laundered wear, not a one-off gift, so durability wins even though Technology leans print-based elsewhere (see Recognition row below) -- the distinction is daily-wear vs. one-off-gift, not industry alone.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Recognition",
@@ -420,8 +425,8 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "practical everyday items -- lower cost per recipient, since retail/hospitality recognition often runs at higher headcount (service anniversaries, etc.)",
-      "decoration_lean": "Embroidery leans elevated, but DTF may be more realistic at the volume/budget this industry's recognition programs usually run at -- genuinely unsure, worth Matt's read",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "DTF over Embroidery -- Matt confirmed: matches the volume/budget this industry's recognition programs typically run at; same Retail & Hospitality-wide lean as Uniform Program and Recruiting.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Recruiting",
@@ -483,8 +488,8 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "Backpack or tote, more casual style -- retail/hospitality recruiting often skews toward a younger candidate pool",
-      "decoration_lean": "DTF may land better than Embroidery here -- full-color graphics can read as more current to a younger, hourly-role-focused candidate pool. Genuine judgment call, not a routine application.",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "DTF over Embroidery -- Matt confirmed: full-color graphics read as more current to a younger, hourly-role-focused candidate pool; same Retail & Hospitality-wide lean as Uniform Program and Recognition.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Recruiting",
@@ -492,8 +497,8 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "Backpack, modern/tech-forward style (laptop-friendly features)",
-      "decoration_lean": "Print-based methods over Embroidery -- same distinctiveness logic as Recognition x Technology, extended here since recruiting is also about first impression/identity",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "Print-based methods over Embroidery -- confirmed: same distinctiveness logic as Recognition x Technology, since recruiting is also about first impression/identity, not daily laundered wear.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Retention",
@@ -564,8 +569,8 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "Tumbler, modern/minimalist style",
-      "decoration_lean": "Print-based methods over Embroidery -- same Technology pattern as Recognition/Recruiting",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "Print-based methods over Embroidery -- confirmed: same Technology pattern as Recognition/Recruiting, a one-off gift/reward rather than daily laundered wear.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Trade Show",
@@ -590,18 +595,18 @@
       "industry": "Industrial",
       "program_pivot": null,
       "apparel_lean": "Polos with Embroidery",
-      "hardgoods_lean": "Practical giveaway tools (tape measures, multi-tools) -- industrial trade-show swag tends to skew functional rather than generic pens",
+      "hardgoods_lean": "Practical giveaway tools (tape measures, multi-tools) -- confirmed by Matt: industrial trade-show swag reads better as functional than generic pens.",
       "decoration_lean": null,
-      "confidence": "guess, judgment call"
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Trade Show",
       "industry": "Construction & Trades",
       "program_pivot": null,
       "apparel_lean": "Polos with Embroidery",
-      "hardgoods_lean": "Practical giveaway tools -- same logic as Industrial",
+      "hardgoods_lean": "Practical giveaway tools -- confirmed, same logic as Industrial.",
       "decoration_lean": null,
-      "confidence": "guess, judgment call"
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Trade Show",
@@ -617,9 +622,9 @@
       "industry": "Healthcare",
       "program_pivot": null,
       "apparel_lean": "Polos with Embroidery",
-      "hardgoods_lean": "Practical wellness-adjacent giveaways (hand sanitizer, small first-aid items) -- healthcare trade shows often skew toward practical health items over generic pens",
+      "hardgoods_lean": "Practical wellness-adjacent giveaways (hand sanitizer, small first-aid items) -- confirmed by Matt as drafted: healthcare trade shows skew toward practical health items over generic pens.",
       "decoration_lean": null,
-      "confidence": "guess, judgment call"
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Trade Show",
@@ -634,10 +639,10 @@
       "business_problem": "Trade Show",
       "industry": "Technology",
       "program_pivot": null,
-      "apparel_lean": "Polos -- decoration method for the polo itself may want to follow Technology's print-based lean instead of the Embroidery default used elsewhere in this Business Problem, worth Matt's read",
+      "apparel_lean": "Polos with print-based decoration (DTF/Sublimation/DTG/Screen Printing) -- confirmed by Matt: Technology's one-off/promotional-item lean overrides the Embroidery default used for Trade Show's other 7 industries, since trade-show giveaways aren't daily laundered wear.",
       "hardgoods_lean": "Tech-adjacent mass giveaways (USB items, phone accessories) rather than plain pens",
       "decoration_lean": null,
-      "confidence": "guess, judgment call"
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Fundraiser",
@@ -672,17 +677,17 @@
       "program_pivot": null,
       "apparel_lean": null,
       "hardgoods_lean": "Headwear (spirit-wear style) or tote bags",
-      "decoration_lean": "DTF may fit better than Embroidery for colorful school spirit-wear items -- genuine judgment call",
-      "confidence": "guess, judgment call"
+      "decoration_lean": "DTF over Embroidery -- confirmed by Matt: full-color mascot/spirit-wear graphics favor DTF, same logic as the confirmed Soft Cotton/Jersey fabric bucket's strong DTF lean.",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Fundraiser",
       "industry": "Healthcare",
       "program_pivot": null,
       "apparel_lean": null,
-      "hardgoods_lean": "NOT Headwear -- following the same category-level pivot Matt confirmed for Uniform Program x Healthcare. Tumbler as the starting default here too, pending Matt's confirmation this transfers.",
+      "hardgoods_lean": "NOT Headwear -- Matt confirmed the Tumbler-not-Headwear pivot from Uniform Program x Healthcare transfers here too; same laundering/scrubs-context reasoning applies regardless of Business Problem.",
       "decoration_lean": "Embroidery",
-      "confidence": "guess, judgment call -- extrapolated from a confirmed rule in a different Business Problem, not itself confirmed"
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     },
     {
       "business_problem": "Fundraiser",
@@ -707,9 +712,9 @@
       "industry": "Technology",
       "program_pivot": null,
       "apparel_lean": null,
-      "hardgoods_lean": "Headwear is a less confident fit for a tech-industry fundraiser audience -- a tech-adjacent item (drinkware, small gadget accessory) may land better",
-      "decoration_lean": "Print-based methods over Embroidery -- same Technology pattern seen elsewhere",
-      "confidence": "guess, judgment call"
+      "hardgoods_lean": "Tech-adjacent drinkware/gadget accessory, NOT Headwear -- confirmed by Matt: matches the tech-adjacent gift lean already confirmed for Recognition and Retention x Technology, rather than the generic Headwear default.",
+      "decoration_lean": "Print-based methods over Embroidery -- confirmed, same Technology one-off-item pattern seen elsewhere",
+      "confidence": "confirmed -- Matt's read, 2026-08-21"
     }
   ],
   "bp_environment_rule": [
