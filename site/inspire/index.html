@@ -462,6 +462,93 @@
   .rating-seg{flex:1; height:5px; border-radius:2px; background:var(--gray-line);}
   .rating-seg.filled{background:var(--blue);}
 
+  .order-details-btn{
+    width:100%;
+    margin-top:14px;
+    font-family:inherit;
+    font-size:0.88rem;
+    font-weight:700;
+    color:var(--navy-deep);
+    background:var(--white);
+    border:1.5px dashed var(--gray-line);
+    border-radius:12px;
+    padding:12px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  .order-details-btn:hover{border-color:var(--blue); color:var(--blue);}
+  .order-details-count{
+    background:var(--blue); color:var(--white);
+    font-size:11px; font-weight:700;
+    border-radius:20px; padding:2px 8px;
+  }
+
+  /* Order Details modal */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(21,40,64,0.5);
+    z-index:100;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-card{
+    background:var(--white);
+    border-radius:16px;
+    max-width:520px;
+    width:100%;
+    max-height:85vh;
+    overflow-y:auto;
+    padding:22px 22px 26px;
+  }
+  .modal-head{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .modal-title{font-size:1.15rem; font-weight:800; color:var(--navy-deep);}
+  .modal-close{
+    background:var(--gray-bg); border:none; border-radius:8px;
+    width:32px; height:32px; font-size:1.2rem; line-height:1;
+    color:var(--gray-text); cursor:pointer;
+  }
+  .modal-close:hover{color:var(--navy-deep);}
+  .modal-dek{font-size:0.85rem; color:var(--gray-text); margin:6px 0 20px;}
+  .modal-section{margin-bottom:22px;}
+  .modal-section:last-child{margin-bottom:0;}
+  .modal-label{font-size:0.85rem; font-weight:700; color:var(--navy-deep); margin-bottom:8px;}
+  .modal-label .opt{font-weight:400; color:var(--gray-text); font-size:0.76rem;}
+  .modal-section input[type="text"], .modal-section select{
+    width:100%;
+    font-family:inherit; font-size:0.9rem; color:var(--navy-deep);
+    background:var(--gray-bg); border:1.5px solid var(--gray-line); border-radius:8px;
+    padding:10px 12px;
+  }
+  .modal-section input[type="text"]:focus, .modal-section select:focus{outline:none; border-color:var(--blue); background:var(--white);}
+  .modal-row-2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .modal-add-btn{
+    margin-top:8px;
+    font-family:inherit; font-size:0.82rem; font-weight:700; color:var(--blue);
+    background:var(--blue-soft); border:none; border-radius:8px;
+    padding:8px 14px; cursor:pointer;
+  }
+  .modal-add-btn:hover{opacity:0.85;}
+  .modal-row{
+    display:grid;
+    grid-template-columns:1fr 1fr auto;
+    gap:6px;
+    align-items:center;
+    margin-bottom:8px;
+  }
+  .modal-row.decoration-row{grid-template-columns:1fr 1fr 1fr auto;}
+  .modal-row-remove{
+    flex:none;
+    background:none; border:none; color:var(--gray-text);
+    font-size:1.1rem; cursor:pointer; padding:2px 6px; line-height:1;
+  }
+  .modal-row-remove:hover{color:var(--warn);}
+
   footer.disclaimer{
     max-width:1180px;
     margin:0 auto;
@@ -636,11 +723,45 @@
     <div class="guidance" id="guidance"></div>
 
     <div id="clusters"></div>
+
+    <button type="button" id="orderDetailsBtn" class="order-details-btn">🎨 Order Details <span id="orderDetailsCount" class="order-details-count" style="display:none;"></span></button>
   </div>
 
 </div>
 
 <footer class="disclaimer">Every default here — decoration method especially — is a soft suggestion, never a hard rule. Draft rows haven't been reviewed by Matt yet; treat them as a starting point for the conversation, not a final answer.</footer>
+
+<div id="orderDetailsOverlay" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Order Details</div>
+      <button type="button" id="orderDetailsClose" class="modal-close">×</button>
+    </div>
+    <div class="modal-dek">Production specifics that matter sometimes, not always — fill in whatever's relevant.</div>
+
+    <div class="modal-section">
+      <div class="modal-label">Garment Color</div>
+      <input type="text" id="garmentColorInput" placeholder="e.g. Green">
+    </div>
+
+    <div id="hatSection" class="modal-section" style="display:none;">
+      <div class="modal-label">Hat Build</div>
+      <div class="modal-row-2">
+        <select id="hatPanelStyleInput"><option value="">Panel style — not set</option></select>
+        <select id="hatClosureInput"><option value="">Closure — not set</option></select>
+      </div>
+      <div class="modal-label" style="margin-top:12px;">Hat Part Colors</div>
+      <div id="hatPartsList"></div>
+      <button type="button" id="addHatPartBtn" class="modal-add-btn">+ Add Part Color</button>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-label">Decorations <span class="opt">— placement, method &amp; color per instance; add as many as the order needs</span></div>
+      <div id="decorationsList"></div>
+      <button type="button" id="addDecorationBtn" class="modal-add-btn">+ Add Decoration</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -648,6 +769,13 @@
     businessProblem: null, industry: null, audience: null, brandPosition: null, environment: null,
     relationshipStage: null, quantityBand: null, notes: "",
     company: "", event: "", budget: "", isCurrentClient: false
+  };
+  var orderDetails = {
+    garmentColor: "",
+    hatPanelStyle: null,
+    hatClosure: null,
+    hatParts: [],      // [{ part, color }]
+    decorations: []     // [{ placement, method, colors }]
   };
   var earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null };
   var overridden = { garment: false, fabric: false, decoration: false, hardgoods: false };
@@ -675,6 +803,7 @@
       relationshipStage: state.relationshipStage, quantityBand: state.quantityBand, notes: state.notes,
       earmarks: JSON.parse(JSON.stringify(earmarks)),
       overridden: JSON.parse(JSON.stringify(overridden)),
+      orderDetails: JSON.parse(JSON.stringify(orderDetails)),
       updatedAt: new Date().toISOString()
     };
   }
@@ -712,6 +841,7 @@
     state.notes = c.notes || "";
     earmarks = c.earmarks ? JSON.parse(JSON.stringify(c.earmarks)) : { garment: null, fabric: null, decoration: null, hardgoods: null };
     overridden = c.overridden ? JSON.parse(JSON.stringify(c.overridden)) : { garment: false, fabric: false, decoration: false, hardgoods: false };
+    orderDetails = c.orderDetails ? JSON.parse(JSON.stringify(c.orderDetails)) : { garmentColor: "", hatPanelStyle: null, hatClosure: null, hatParts: [], decorations: [] };
 
     document.getElementById("companyInput").value = state.company;
     document.getElementById("eventInput").value = state.event;
@@ -728,6 +858,7 @@
       updateFieldSummary(field);
     });
     updateFieldSummary("notes");
+    renderOrderDetailsUI();
 
     closeCasesPanel();
     renderRight();
@@ -742,6 +873,8 @@
     state.relationshipStage = null; state.quantityBand = null; state.notes = "";
     earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null };
     overridden = { garment: false, fabric: false, decoration: false, hardgoods: false };
+    orderDetails = { garmentColor: "", hatPanelStyle: null, hatClosure: null, hatParts: [], decorations: [] };
+    renderOrderDetailsUI();
 
     document.getElementById("companyInput").value = "";
     document.getElementById("eventInput").value = "";
@@ -874,9 +1007,22 @@
     buildChips("chips-audience", data.audience, "audience");
     buildChips("chips-brandPosition", data.brand_position, "brandPosition");
     buildChips("chips-environment", data.environment, "environment");
+    fillSelect("hatPanelStyleInput", data.hat_panel_style, "Panel style — not set");
+    fillSelect("hatClosureInput", data.hat_closure, "Closure — not set");
     renderRight();
     renderCaseControls();
   });
+
+  function fillSelect(id, items, placeholder){
+    var el = document.getElementById(id);
+    if (!el || !items) return;
+    items.forEach(function(item){
+      var opt = document.createElement("option");
+      opt.value = item.name;
+      opt.textContent = item.name;
+      el.appendChild(opt);
+    });
+  }
 
   function buildChips(containerId, items, field, onChange){
     var el = document.getElementById(containerId);
@@ -1003,7 +1149,133 @@
     CLUSTER_DEFS.forEach(function(def){
       clustersEl.appendChild(renderCluster(def, lists[def.table], ctx));
     });
+
+    var hardgoodsMentionsHeadwear = !!(earmarks.hardgoods && earmarks.hardgoods.toLowerCase().indexOf("headwear") !== -1);
+    document.getElementById("hatSection").style.display = hardgoodsMentionsHeadwear ? "block" : "none";
+    updateOrderDetailsCount();
   }
+
+  // --- Order Details modal ---
+  function updateOrderDetailsCount(){
+    var n = (orderDetails.garmentColor ? 1 : 0) + orderDetails.hatParts.length + orderDetails.decorations.length +
+      (orderDetails.hatPanelStyle ? 1 : 0) + (orderDetails.hatClosure ? 1 : 0);
+    var badge = document.getElementById("orderDetailsCount");
+    if (n > 0) { badge.textContent = n; badge.style.display = "inline-block"; }
+    else { badge.style.display = "none"; }
+  }
+
+  function renderOrderDetailsUI(){
+    document.getElementById("garmentColorInput").value = orderDetails.garmentColor || "";
+    document.getElementById("hatPanelStyleInput").value = orderDetails.hatPanelStyle || "";
+    document.getElementById("hatClosureInput").value = orderDetails.hatClosure || "";
+    renderHatPartsList();
+    renderDecorationsList();
+    updateOrderDetailsCount();
+  }
+
+  function renderHatPartsList(){
+    var wrap = document.getElementById("hatPartsList");
+    var hatParts = (data && data.hat_part) || [];
+    wrap.innerHTML = orderDetails.hatParts.map(function(row, i){
+      var partOptions = hatParts.map(function(p){
+        return '<option value="' + p.name + '"' + (p.name === row.part ? " selected" : "") + '>' + p.name + '</option>';
+      }).join("");
+      return '<div class="modal-row" data-idx="' + i + '">' +
+        '<select class="hat-part-select" data-idx="' + i + '"><option value="">Part…</option>' + partOptions + '</select>' +
+        '<input type="text" class="hat-part-color" data-idx="' + i + '" placeholder="Color" value="' + (row.color || "").replace(/"/g, "&quot;") + '">' +
+        '<button type="button" class="modal-row-remove" data-idx="' + i + '" title="Remove">×</button>' +
+        '</div>';
+    }).join("");
+    wrap.querySelectorAll(".hat-part-select").forEach(function(sel){
+      sel.addEventListener("change", function(){ orderDetails.hatParts[+sel.dataset.idx].part = sel.value; autosaveNow(); });
+    });
+    wrap.querySelectorAll(".hat-part-color").forEach(function(inp){
+      inp.addEventListener("input", function(){ orderDetails.hatParts[+inp.dataset.idx].color = inp.value; autosaveDebounced(); });
+    });
+    wrap.querySelectorAll(".modal-row-remove").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        orderDetails.hatParts.splice(+btn.dataset.idx, 1);
+        renderHatPartsList();
+        updateOrderDetailsCount();
+        autosaveNow();
+      });
+    });
+  }
+
+  function renderDecorationsList(){
+    var wrap = document.getElementById("decorationsList");
+    var placements = (data && data.decoration_placement) || [];
+    var methods = (data && data.decoration_method) || [];
+    wrap.innerHTML = orderDetails.decorations.map(function(row, i){
+      var placementOptions = placements.map(function(p){
+        return '<option value="' + p.name + '"' + (p.name === row.placement ? " selected" : "") + '>' + p.name + '</option>';
+      }).join("");
+      var methodOptions = methods.map(function(m){
+        return '<option value="' + m.name + '"' + (m.name === row.method ? " selected" : "") + '>' + m.name + '</option>';
+      }).join("");
+      return '<div class="modal-row decoration-row" data-idx="' + i + '">' +
+        '<select class="deco-placement" data-idx="' + i + '"><option value="">Placement…</option>' + placementOptions + '</select>' +
+        '<select class="deco-method" data-idx="' + i + '"><option value="">Method…</option>' + methodOptions + '</select>' +
+        '<input type="text" class="deco-colors" data-idx="' + i + '" placeholder="Color(s)" value="' + (row.colors || "").replace(/"/g, "&quot;") + '">' +
+        '<button type="button" class="modal-row-remove" data-idx="' + i + '" title="Remove">×</button>' +
+        '</div>';
+    }).join("");
+    wrap.querySelectorAll(".deco-placement").forEach(function(sel){
+      sel.addEventListener("change", function(){ orderDetails.decorations[+sel.dataset.idx].placement = sel.value; autosaveNow(); });
+    });
+    wrap.querySelectorAll(".deco-method").forEach(function(sel){
+      sel.addEventListener("change", function(){ orderDetails.decorations[+sel.dataset.idx].method = sel.value; autosaveNow(); });
+    });
+    wrap.querySelectorAll(".deco-colors").forEach(function(inp){
+      inp.addEventListener("input", function(){ orderDetails.decorations[+inp.dataset.idx].colors = inp.value; autosaveDebounced(); });
+    });
+    wrap.querySelectorAll(".modal-row-remove").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        orderDetails.decorations.splice(+btn.dataset.idx, 1);
+        renderDecorationsList();
+        updateOrderDetailsCount();
+        autosaveNow();
+      });
+    });
+  }
+
+  document.getElementById("garmentColorInput").addEventListener("input", function(e){
+    orderDetails.garmentColor = e.target.value;
+    updateOrderDetailsCount();
+    autosaveDebounced();
+  });
+  document.getElementById("hatPanelStyleInput").addEventListener("change", function(e){
+    orderDetails.hatPanelStyle = e.target.value || null;
+    updateOrderDetailsCount();
+    autosaveNow();
+  });
+  document.getElementById("hatClosureInput").addEventListener("change", function(e){
+    orderDetails.hatClosure = e.target.value || null;
+    updateOrderDetailsCount();
+    autosaveNow();
+  });
+  document.getElementById("addHatPartBtn").addEventListener("click", function(){
+    orderDetails.hatParts.push({ part: "", color: "" });
+    renderHatPartsList();
+    updateOrderDetailsCount();
+  });
+  document.getElementById("addDecorationBtn").addEventListener("click", function(){
+    orderDetails.decorations.push({ placement: "", method: (earmarks.decoration || ""), colors: "" });
+    renderDecorationsList();
+    updateOrderDetailsCount();
+  });
+
+  var orderDetailsOverlay = document.getElementById("orderDetailsOverlay");
+  document.getElementById("orderDetailsBtn").addEventListener("click", function(){
+    renderOrderDetailsUI();
+    orderDetailsOverlay.classList.add("open");
+  });
+  document.getElementById("orderDetailsClose").addEventListener("click", function(){
+    orderDetailsOverlay.classList.remove("open");
+  });
+  orderDetailsOverlay.addEventListener("click", function(e){
+    if (e.target === orderDetailsOverlay) orderDetailsOverlay.classList.remove("open");
+  });
 
   function renderCluster(def, options, ctx){
     var wrap = document.createElement("div");

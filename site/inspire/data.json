@@ -287,6 +287,94 @@
       "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
     }
   ],
+  "decoration_placement": [
+    {
+      "placement_id": 1,
+      "name": "Left Chest"
+    },
+    {
+      "placement_id": 2,
+      "name": "Right Chest"
+    },
+    {
+      "placement_id": 3,
+      "name": "Full Front"
+    },
+    {
+      "placement_id": 4,
+      "name": "Full Back"
+    }
+  ],
+  "hat_panel_style": [
+    {
+      "hat_panel_style_id": 1,
+      "name": "5-Panel"
+    },
+    {
+      "hat_panel_style_id": 2,
+      "name": "6-Panel"
+    },
+    {
+      "hat_panel_style_id": 3,
+      "name": "Trucker / Mesh Back"
+    },
+    {
+      "hat_panel_style_id": 4,
+      "name": "Structured"
+    },
+    {
+      "hat_panel_style_id": 5,
+      "name": "Unstructured"
+    }
+  ],
+  "hat_closure": [
+    {
+      "hat_closure_id": 1,
+      "name": "Snapback"
+    },
+    {
+      "hat_closure_id": 2,
+      "name": "Velcro"
+    },
+    {
+      "hat_closure_id": 3,
+      "name": "Flex Fit / Stretch"
+    },
+    {
+      "hat_closure_id": 4,
+      "name": "Adjustable Strap"
+    },
+    {
+      "hat_closure_id": 5,
+      "name": "Fitted"
+    }
+  ],
+  "hat_part": [
+    {
+      "hat_part_id": 1,
+      "name": "Body"
+    },
+    {
+      "hat_part_id": 2,
+      "name": "Bill"
+    },
+    {
+      "hat_part_id": 3,
+      "name": "Front Panels"
+    },
+    {
+      "hat_part_id": 4,
+      "name": "Side Panels"
+    },
+    {
+      "hat_part_id": 5,
+      "name": "Back Panel"
+    },
+    {
+      "hat_part_id": 6,
+      "name": "Button"
+    }
+  ],
   "bp_industry_rule": [
     {
       "business_problem": "Uniform Program",
