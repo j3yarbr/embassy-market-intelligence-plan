@@ -777,9 +777,9 @@
     hatParts: [],      // [{ part, color }]
     decorations: []     // [{ placement, method, colors }]
   };
-  var earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null };
-  var overridden = { garment: false, fabric: false, decoration: false, hardgoods: false };
-  var openClusters = { garment: false, fabric: false, decoration: false, hardgoods: false };
+  var earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null, signage: null, safety: null };
+  var overridden = { garment: false, fabric: false, decoration: false, hardgoods: false, signage: false, safety: false };
+  var openClusters = { garment: false, fabric: false, decoration: false, hardgoods: false, signage: false, safety: false };
   var data = null;
 
   // --- Saved Cases: autosave to this browser's localStorage as selections are made ---
@@ -839,8 +839,8 @@
     state.relationshipStage = c.relationshipStage || null;
     state.quantityBand = c.quantityBand || null;
     state.notes = c.notes || "";
-    earmarks = c.earmarks ? JSON.parse(JSON.stringify(c.earmarks)) : { garment: null, fabric: null, decoration: null, hardgoods: null };
-    overridden = c.overridden ? JSON.parse(JSON.stringify(c.overridden)) : { garment: false, fabric: false, decoration: false, hardgoods: false };
+    earmarks = c.earmarks ? JSON.parse(JSON.stringify(c.earmarks)) : { garment: null, fabric: null, decoration: null, hardgoods: null, signage: null, safety: null };
+    overridden = c.overridden ? JSON.parse(JSON.stringify(c.overridden)) : { garment: false, fabric: false, decoration: false, hardgoods: false, signage: false, safety: false };
     orderDetails = c.orderDetails ? JSON.parse(JSON.stringify(c.orderDetails)) : { garmentColor: "", hatPanelStyle: null, hatClosure: null, hatParts: [], decorations: [] };
 
     document.getElementById("companyInput").value = state.company;
@@ -871,8 +871,8 @@
     state.businessProblem = null; state.industry = null; state.audience = null;
     state.brandPosition = null; state.environment = null;
     state.relationshipStage = null; state.quantityBand = null; state.notes = "";
-    earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null };
-    overridden = { garment: false, fabric: false, decoration: false, hardgoods: false };
+    earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null, signage: null, safety: null };
+    overridden = { garment: false, fabric: false, decoration: false, hardgoods: false, signage: false, safety: false };
     orderDetails = { garmentColor: "", hatPanelStyle: null, hatClosure: null, hatParts: [], decorations: [] };
     renderOrderDetailsUI();
 
@@ -1073,10 +1073,12 @@
   };
 
   var CLUSTER_DEFS = [
-    { key: "garment", icon: "👕", label: "Garment", table: "garment_options" },
+    { key: "garment", icon: "👕", label: "Apparel", table: "garment_options" },
     { key: "fabric", icon: "🧵", label: "Fabric", table: "fabric_options" },
     { key: "decoration", icon: "🎨", label: "Decoration Method", table: "decoration_options" },
-    { key: "hardgoods", icon: "🎁", label: "Hardgoods / Accessory", table: "hardgoods_options" }
+    { key: "hardgoods", icon: "🎁", label: "Hardgoods", table: "hardgoods_options" },
+    { key: "signage", icon: "🪧", label: "Signage", table: "signage_options", browseOnly: true },
+    { key: "safety", icon: "🦺", label: "Safety", table: "safety_options", browseOnly: true }
   ];
 
   function currentRules(){
@@ -1090,13 +1092,21 @@
     return { bp: bp, industryRule: industryRule, envRule: envRule };
   }
 
-  // Build the option lists each cluster swipes through, from the real reference data
+  // Build the option lists each cluster swipes through, from the real reference data.
+  // Apparel/Hardgoods/Signage/Safety are all filtered slices of one product_item table
+  // (see inspire_reference_data.json's 2026-08-21 category rework) rather than separate
+  // disconnected lists -- fixes Headwear previously living in the Hardgoods cluster
+  // despite being tagged category:Apparel.
   function optionLists(){
+    var items = (data && data.product_item) || [];
+    function byCategory(cat){ return items.filter(function(i){ return i.category === cat; }); }
     return {
-      garment_options: data.garment_tier || [],
+      garment_options: byCategory("Apparel"),
       fabric_options: data.fabric_bucket || [],
       decoration_options: data.decoration_method || [],
-      hardgoods_options: data.accessory_recommendation || []
+      hardgoods_options: byCategory("Hardgoods"),
+      signage_options: byCategory("Signage"),
+      safety_options: byCategory("Safety")
     };
   }
 
@@ -1150,8 +1160,12 @@
       clustersEl.appendChild(renderCluster(def, lists[def.table], ctx));
     });
 
-    var hardgoodsMentionsHeadwear = !!(earmarks.hardgoods && earmarks.hardgoods.toLowerCase().indexOf("headwear") !== -1);
-    document.getElementById("hatSection").style.display = hardgoodsMentionsHeadwear ? "block" : "none";
+    // Headwear now lives in the Apparel cluster (earmarks.garment), not Hardgoods, per the
+    // 2026-08-21 category rework -- this trigger moved with it. No current rule data ever
+    // suggests Headwear by name (it's not a garment_tier/apparel_lean value anywhere), so
+    // this only ever fires from a manual "Headwear" card pick, which is expected.
+    var apparelMentionsHeadwear = !!(earmarks.garment && earmarks.garment.toLowerCase().indexOf("headwear") !== -1);
+    document.getElementById("hatSection").style.display = apparelMentionsHeadwear ? "block" : "none";
     updateOrderDetailsCount();
   }
 
@@ -1283,9 +1297,11 @@
 
     var pick = earmarks[def.key];
     var hasApparelOverride = ctx.industryRule && ctx.industryRule.apparel_lean;
-    var emptyText = (def.key === "decoration" && hasApparelOverride)
-      ? "See Garment — decoration is specified there for this case"
-      : "Pick more on the left to see options";
+    var emptyText = def.browseOnly
+      ? "Optional — tap to browse, nothing suggested automatically"
+      : (def.key === "decoration" && hasApparelOverride)
+        ? "See Apparel — decoration is specified there for this case"
+        : "Pick more on the left to see options";
     var head = document.createElement("div");
     head.className = "cluster-head";
     head.innerHTML =
@@ -1331,7 +1347,7 @@
       return "<b>Why:</b> " + ctx.industryRule.hardgoods_lean;
     }
     if (key === "decoration" && ctx.industryRule && ctx.industryRule.apparel_lean) {
-      return "<b>Folded into the garment call:</b> for this Business Problem, decoration is specified as part of the garment recommendation above rather than separately — see the Garment cluster.";
+      return "<b>Folded into the apparel call:</b> for this Business Problem, decoration is specified as part of the apparel recommendation above rather than separately — see the Apparel cluster.";
     }
     if (key === "decoration" && ctx.industryRule && ctx.industryRule.decoration_lean) {
       return "<b>Industry nudge:</b> " + ctx.industryRule.decoration_lean;
