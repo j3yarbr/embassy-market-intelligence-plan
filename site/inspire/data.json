@@ -155,6 +155,129 @@
       "business_problem_id": 6
     }
   ],
+  "garment_tier": [
+    {
+      "garment_tier_id": 1,
+      "name": "Event Tee"
+    },
+    {
+      "garment_tier_id": 2,
+      "name": "Professional Polo"
+    },
+    {
+      "garment_tier_id": 3,
+      "name": "Premium Polo / Quarter Zip"
+    },
+    {
+      "garment_tier_id": 4,
+      "name": "Performance Tee"
+    },
+    {
+      "garment_tier_id": 5,
+      "name": "Triblend Tee"
+    }
+  ],
+  "fabric_bucket": [
+    {
+      "bucket_id": 1,
+      "name": "Woven",
+      "hand_feel": 3,
+      "functionality": 4,
+      "durability": 4,
+      "professionalism": 5,
+      "decoration_lean": "Embroidery, strongly -- DTF is technically possible but waters down the elevated look",
+      "confidence": "confirmed -- Matt's own example"
+    },
+    {
+      "bucket_id": 2,
+      "name": "Soft Cotton / Jersey",
+      "hand_feel": 5,
+      "functionality": 4,
+      "durability": 3,
+      "professionalism": 2,
+      "decoration_lean": "DTF, strongly -- soft casual tees are where full-color DTF graphics read best; Embroidery works but is less typical here",
+      "confidence": "confirmed -- Matt corrected functionality 2->4 and durability 2->3, hand_feel/professionalism unchanged"
+    },
+    {
+      "bucket_id": 3,
+      "name": "Technical Performance",
+      "hand_feel": 3,
+      "functionality": 5,
+      "durability": 4,
+      "professionalism": 3,
+      "decoration_lean": "DTF leans slightly stronger for athletic-team graphics, Embroidery still solid on structured performance pieces",
+      "confidence": "confirmed -- approved via flashcard review 2026-07-24"
+    },
+    {
+      "bucket_id": 4,
+      "name": "Refined Performance",
+      "hand_feel": 4,
+      "functionality": 4,
+      "durability": 4,
+      "professionalism": 5,
+      "decoration_lean": "Embroidery, strongly -- same 'don't water down the premium look' logic as Woven",
+      "confidence": "confirmed -- approved via flashcard review 2026-07-24"
+    },
+    {
+      "bucket_id": 5,
+      "name": "Casual Blend",
+      "hand_feel": 4,
+      "functionality": 3,
+      "durability": 3,
+      "professionalism": 2,
+      "decoration_lean": "DTF, strongly -- vintage-soft blends and full-color DTF are a common pairing; Embroidery can feel stiff against this hand-feel",
+      "confidence": "confirmed -- approved via flashcard review 2026-07-24"
+    }
+  ],
+  "decoration_method": [
+    {
+      "decoration_method_id": 1,
+      "name": "DTF"
+    },
+    {
+      "decoration_method_id": 2,
+      "name": "Embroidery"
+    },
+    {
+      "decoration_method_id": 3,
+      "name": "Sublimation"
+    },
+    {
+      "decoration_method_id": 4,
+      "name": "DTG"
+    },
+    {
+      "decoration_method_id": 5,
+      "name": "Screen Printing"
+    }
+  ],
+  "accessory_recommendation": [
+    {
+      "accessory_id": 1,
+      "name": "Headwear",
+      "category": "Apparel"
+    },
+    {
+      "accessory_id": 2,
+      "name": "Gift Set",
+      "category": "Hardgoods"
+    },
+    {
+      "accessory_id": 3,
+      "name": "Backpack",
+      "category": "Hardgoods"
+    },
+    {
+      "accessory_id": 4,
+      "name": "Tumbler",
+      "category": "Hardgoods"
+    },
+    {
+      "accessory_id": 5,
+      "name": "Swag Bag",
+      "category": "Hardgoods"
+    }
+  ],
   "bp_industry_rule": [
     {
       "business_problem": "Uniform Program",
