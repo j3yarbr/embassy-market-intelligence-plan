@@ -155,26 +155,94 @@
       "business_problem_id": 6
     }
   ],
-  "garment_tier": [
+  "product_category": [
     {
-      "garment_tier_id": 1,
-      "name": "Event Tee"
+      "name": "Apparel"
     },
     {
-      "garment_tier_id": 2,
-      "name": "Professional Polo"
+      "name": "Hardgoods"
     },
     {
-      "garment_tier_id": 3,
-      "name": "Premium Polo / Quarter Zip"
+      "name": "Signage"
     },
     {
-      "garment_tier_id": 4,
-      "name": "Performance Tee"
+      "name": "Safety"
+    }
+  ],
+  "product_item": [
+    {
+      "item_id": 1,
+      "name": "Event Tee",
+      "category": "Apparel"
     },
     {
-      "garment_tier_id": 5,
-      "name": "Triblend Tee"
+      "item_id": 2,
+      "name": "Professional Polo",
+      "category": "Apparel"
+    },
+    {
+      "item_id": 3,
+      "name": "Premium Polo / Quarter Zip",
+      "category": "Apparel"
+    },
+    {
+      "item_id": 4,
+      "name": "Performance Tee",
+      "category": "Apparel"
+    },
+    {
+      "item_id": 5,
+      "name": "Triblend Tee",
+      "category": "Apparel"
+    },
+    {
+      "item_id": 6,
+      "name": "Headwear",
+      "category": "Apparel"
+    },
+    {
+      "item_id": 7,
+      "name": "Gift Set",
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
+    },
+    {
+      "item_id": 8,
+      "name": "Backpack",
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
+    },
+    {
+      "item_id": 9,
+      "name": "Tumbler",
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
+    },
+    {
+      "item_id": 10,
+      "name": "Swag Bag",
+      "category": "Hardgoods",
+      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
+    },
+    {
+      "item_id": 11,
+      "name": "Banner",
+      "category": "Signage"
+    },
+    {
+      "item_id": 12,
+      "name": "Yard Sign",
+      "category": "Signage"
+    },
+    {
+      "item_id": 13,
+      "name": "Hard Hat",
+      "category": "Safety"
+    },
+    {
+      "item_id": 14,
+      "name": "High-Vis Vest",
+      "category": "Safety"
     }
   ],
   "fabric_bucket": [
@@ -254,37 +322,6 @@
       "decoration_method_id": 5,
       "name": "Screen Printing",
       "fee_note": "$30 one-time vector/digitizing fee per order (only if artwork isn't already print-ready)"
-    }
-  ],
-  "accessory_recommendation": [
-    {
-      "accessory_id": 1,
-      "name": "Headwear",
-      "category": "Apparel"
-    },
-    {
-      "accessory_id": 2,
-      "name": "Gift Set",
-      "category": "Hardgoods",
-      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
-    },
-    {
-      "accessory_id": 3,
-      "name": "Backpack",
-      "category": "Hardgoods",
-      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
-    },
-    {
-      "accessory_id": 4,
-      "name": "Tumbler",
-      "category": "Hardgoods",
-      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
-    },
-    {
-      "accessory_id": 5,
-      "name": "Swag Bag",
-      "category": "Hardgoods",
-      "fee_note": "Setup fee ~$55-$75 per order (varies, doesn't scale with quantity)"
     }
   ],
   "decoration_placement": [
