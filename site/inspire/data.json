@@ -232,24 +232,28 @@
   "decoration_method": [
     {
       "decoration_method_id": 1,
-      "name": "DTF"
+      "name": "DTF",
+      "fee_note": "$30 one-time vector/digitizing fee per order (only if artwork isn't already print-ready)"
     },
     {
       "decoration_method_id": 2,
       "name": "Embroidery",
-      "fee_note": "$30 one-time digitizing fee (per logo/design) + $5 per piece"
+      "fee_note": "$30 one-time vector/digitizing fee per order (if needed) + $5 one-time machine setup fee per order"
     },
     {
       "decoration_method_id": 3,
-      "name": "Sublimation"
+      "name": "Sublimation",
+      "fee_note": "$30 one-time vector/digitizing fee per order (only if artwork isn't already print-ready)"
     },
     {
       "decoration_method_id": 4,
-      "name": "DTG"
+      "name": "DTG",
+      "fee_note": "$30 one-time vector/digitizing fee per order (only if artwork isn't already print-ready)"
     },
     {
       "decoration_method_id": 5,
-      "name": "Screen Printing"
+      "name": "Screen Printing",
+      "fee_note": "$30 one-time vector/digitizing fee per order (only if artwork isn't already print-ready)"
     }
   ],
   "accessory_recommendation": [
