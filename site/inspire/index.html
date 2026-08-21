@@ -82,6 +82,69 @@
   }
   .case-field{min-width:0;}
   @media (max-width:760px){ .case-bar-inner{grid-template-columns:1fr;} }
+  .case-controls{
+    max-width:1180px;
+    margin:12px auto 0;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    position:relative;
+    flex-wrap:wrap;
+  }
+  .case-ctrl-btn{
+    font-family:inherit;
+    font-size:0.78rem;
+    font-weight:700;
+    color:var(--navy-deep);
+    background:var(--gray-bg);
+    border:1.5px solid var(--gray-line);
+    border-radius:20px;
+    padding:6px 14px;
+    cursor:pointer;
+  }
+  .case-ctrl-btn:hover{border-color:var(--blue);}
+  .current-case-label{font-size:0.78rem; color:var(--blue); font-weight:600;}
+  .cases-panel{
+    display:none;
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    width:min(360px, 90vw);
+    background:var(--white);
+    border:1px solid var(--gray-line);
+    border-radius:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.14);
+    max-height:320px;
+    overflow-y:auto;
+    z-index:30;
+  }
+  .cases-panel.open{display:block;}
+  .cases-empty{padding:16px; font-size:0.85rem; color:var(--gray-text);}
+  .case-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:10px 14px;
+    border-bottom:1px solid var(--gray-line);
+    cursor:pointer;
+  }
+  .case-row:last-child{border-bottom:none;}
+  .case-row:hover{background:var(--gray-bg);}
+  .case-row.active{background:var(--blue-soft);}
+  .case-row-name{font-size:0.88rem; font-weight:700; color:var(--navy-deep);}
+  .case-row-sub{font-size:0.74rem; color:var(--gray-text); margin-top:2px;}
+  .case-row-delete{
+    flex:none;
+    background:none;
+    border:none;
+    color:var(--gray-text);
+    font-size:1.1rem;
+    cursor:pointer;
+    padding:2px 6px;
+    line-height:1;
+  }
+  .case-row-delete:hover{color:var(--warn);}
   .case-field label{
     display:block;
     font-size:10.5px;
@@ -436,6 +499,12 @@
       <input type="text" id="budgetInput" placeholder="e.g. $15–25/piece">
     </div>
   </div>
+  <div class="case-controls">
+    <button type="button" id="casesBtn" class="case-ctrl-btn">📁 Saved Cases (<span id="casesCount">0</span>)</button>
+    <button type="button" id="newCaseBtn" class="case-ctrl-btn">+ New Case</button>
+    <span id="currentCaseLabel" class="current-case-label"></span>
+    <div id="casesPanel" class="cases-panel"></div>
+  </div>
 </div>
 
 <div class="layout">
@@ -585,6 +654,191 @@
   var openClusters = { garment: false, fabric: false, decoration: false, hardgoods: false };
   var data = null;
 
+  // --- Saved Cases: autosave to this browser's localStorage as selections are made ---
+  // Device-local only (not synced across browsers/devices) -- fine for testing, a real
+  // shared store is the longer-term plan once the suite's database direction is decided.
+  var CASES_KEY = "inspire_cases_v1";
+  var currentCaseId = null;
+  var saveDebounceTimer = null;
+
+  function loadAllCases(){
+    try { return JSON.parse(localStorage.getItem(CASES_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  function saveAllCases(cases){
+    try { localStorage.setItem(CASES_KEY, JSON.stringify(cases)); } catch (e) {}
+  }
+  function currentStateSnapshot(){
+    return {
+      company: state.company, event: state.event, budget: state.budget, isCurrentClient: state.isCurrentClient,
+      businessProblem: state.businessProblem, industry: state.industry, audience: state.audience,
+      brandPosition: state.brandPosition, environment: state.environment,
+      relationshipStage: state.relationshipStage, quantityBand: state.quantityBand, notes: state.notes,
+      earmarks: JSON.parse(JSON.stringify(earmarks)),
+      overridden: JSON.parse(JSON.stringify(overridden)),
+      updatedAt: new Date().toISOString()
+    };
+  }
+  function autosaveNow(){
+    if (!currentCaseId) {
+      if (!state.company) return; // don't create a record until there's at least a Company name
+      currentCaseId = "case_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    }
+    var cases = loadAllCases();
+    var snap = currentStateSnapshot();
+    snap.createdAt = (cases[currentCaseId] && cases[currentCaseId].createdAt) || snap.updatedAt;
+    cases[currentCaseId] = snap;
+    saveAllCases(cases);
+    renderCaseControls();
+  }
+  function autosaveDebounced(){
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(autosaveNow, 400);
+  }
+
+  function applyCase(id){
+    var cases = loadAllCases();
+    var c = cases[id];
+    if (!c) return;
+    currentCaseId = id;
+    state.company = c.company || ""; state.event = c.event || ""; state.budget = c.budget || "";
+    state.isCurrentClient = !!c.isCurrentClient;
+    state.businessProblem = c.businessProblem || null;
+    state.industry = c.industry || null;
+    state.audience = c.audience || null;
+    state.brandPosition = c.brandPosition || null;
+    state.environment = c.environment || null;
+    state.relationshipStage = c.relationshipStage || null;
+    state.quantityBand = c.quantityBand || null;
+    state.notes = c.notes || "";
+    earmarks = c.earmarks ? JSON.parse(JSON.stringify(c.earmarks)) : { garment: null, fabric: null, decoration: null, hardgoods: null };
+    overridden = c.overridden ? JSON.parse(JSON.stringify(c.overridden)) : { garment: false, fabric: false, decoration: false, hardgoods: false };
+
+    document.getElementById("companyInput").value = state.company;
+    document.getElementById("eventInput").value = state.event;
+    document.getElementById("budgetInput").value = state.budget;
+    document.getElementById("notesInput").value = state.notes;
+    isCurrentClientInput.checked = state.isCurrentClient;
+    isCurrentClientLabel.textContent = state.isCurrentClient ? "Current client in Sage" : "Prospect (not yet in Sage)";
+    isCurrentClientLabel.classList.toggle("off", !state.isCurrentClient);
+
+    ["businessProblem", "industry", "audience", "brandPosition", "environment", "relationshipStage", "quantityBand"].forEach(function(field){
+      document.querySelectorAll('[data-field="' + field + '"]').forEach(function(btn){
+        btn.classList.toggle("selected", btn.dataset.value === state[field]);
+      });
+      updateFieldSummary(field);
+    });
+    updateFieldSummary("notes");
+
+    closeCasesPanel();
+    renderRight();
+    renderCaseControls();
+  }
+
+  function startNewCase(){
+    currentCaseId = null;
+    state.company = ""; state.event = ""; state.budget = ""; state.isCurrentClient = false;
+    state.businessProblem = null; state.industry = null; state.audience = null;
+    state.brandPosition = null; state.environment = null;
+    state.relationshipStage = null; state.quantityBand = null; state.notes = "";
+    earmarks = { garment: null, fabric: null, decoration: null, hardgoods: null };
+    overridden = { garment: false, fabric: false, decoration: false, hardgoods: false };
+
+    document.getElementById("companyInput").value = "";
+    document.getElementById("eventInput").value = "";
+    document.getElementById("budgetInput").value = "";
+    document.getElementById("notesInput").value = "";
+    isCurrentClientInput.checked = false;
+    isCurrentClientLabel.textContent = "Prospect (not yet in Sage)";
+    isCurrentClientLabel.classList.add("off");
+    document.querySelectorAll(".chip.selected").forEach(function(b){ b.classList.remove("selected"); });
+    updateAllFieldSummaries();
+    closeCasesPanel();
+    renderRight();
+    renderCaseControls();
+  }
+
+  function deleteCase(id){
+    var cases = loadAllCases();
+    delete cases[id];
+    saveAllCases(cases);
+    if (currentCaseId === id) startNewCase();
+    else renderCasesPanel();
+    renderCaseControls();
+  }
+
+  function timeAgo(iso){
+    var diff = Date.now() - new Date(iso).getTime();
+    var mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.floor(hrs / 24) + "d ago";
+  }
+
+  function renderCaseControls(){
+    var cases = loadAllCases();
+    document.getElementById("casesCount").textContent = Object.keys(cases).length;
+    var label = document.getElementById("currentCaseLabel");
+    if (currentCaseId && cases[currentCaseId]) {
+      label.textContent = "Editing: " + (cases[currentCaseId].company || "(unnamed case)");
+      label.style.display = "inline";
+    } else {
+      label.style.display = "none";
+    }
+  }
+
+  function renderCasesPanel(){
+    var cases = loadAllCases();
+    var ids = Object.keys(cases).sort(function(a, b){ return new Date(cases[b].updatedAt) - new Date(cases[a].updatedAt); });
+    var panel = document.getElementById("casesPanel");
+    if (!ids.length) {
+      panel.innerHTML = '<div class="cases-empty">No saved cases yet — start filling in Company above.</div>';
+      return;
+    }
+    panel.innerHTML = ids.map(function(id){
+      var c = cases[id];
+      var label = c.company || "(unnamed case)";
+      var sub = [c.event, c.businessProblem, c.industry].filter(Boolean).join(" · ") || "no details yet";
+      var activeClass = id === currentCaseId ? " active" : "";
+      return '<div class="case-row' + activeClass + '" data-id="' + id + '">' +
+        '<div class="case-row-main"><div class="case-row-name">' + label + '</div><div class="case-row-sub">' + sub + ' · ' + timeAgo(c.updatedAt) + '</div></div>' +
+        '<button type="button" class="case-row-delete" data-id="' + id + '" title="Delete">×</button>' +
+        '</div>';
+    }).join("");
+    panel.querySelectorAll(".case-row").forEach(function(row){
+      row.addEventListener("click", function(e){
+        if (e.target.classList.contains("case-row-delete")) return;
+        applyCase(row.dataset.id);
+      });
+    });
+    panel.querySelectorAll(".case-row-delete").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        if (confirm("Delete this saved case? This can't be undone.")) deleteCase(btn.dataset.id);
+      });
+    });
+  }
+
+  var casesPanelEl = document.getElementById("casesPanel");
+  function openCasesPanel(){ renderCasesPanel(); casesPanelEl.classList.add("open"); }
+  function closeCasesPanel(){ casesPanelEl.classList.remove("open"); }
+
+  document.getElementById("casesBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    if (casesPanelEl.classList.contains("open")) closeCasesPanel(); else openCasesPanel();
+  });
+  document.getElementById("newCaseBtn").addEventListener("click", function(){
+    if (currentCaseId || state.company) {
+      if (!confirm("Start a new case? Anything already saved stays in Saved Cases — this just clears the screen.")) return;
+    }
+    startNewCase();
+  });
+  document.addEventListener("click", function(e){
+    if (!casesPanelEl.contains(e.target) && e.target.id !== "casesBtn") closeCasesPanel();
+  });
+  renderCaseControls();
+
   // Every collapsible section in this app defaults to closed -- standing rule, not just for this build.
   document.querySelectorAll(".input-group-head").forEach(function(head){
     head.addEventListener("click", function(){
@@ -610,6 +864,7 @@
     state.isCurrentClient = e.target.checked;
     isCurrentClientLabel.textContent = state.isCurrentClient ? "Current client in Sage" : "Prospect (not yet in Sage)";
     isCurrentClientLabel.classList.toggle("off", !state.isCurrentClient);
+    autosaveNow();
   });
 
   fetch("data.json").then(function(r){ return r.json(); }).then(function(json){
@@ -620,6 +875,7 @@
     buildChips("chips-brandPosition", data.brand_position, "brandPosition");
     buildChips("chips-environment", data.environment, "environment");
     renderRight();
+    renderCaseControls();
   });
 
   function buildChips(containerId, items, field, onChange){
@@ -650,12 +906,13 @@
     });
     updateFieldSummary(field);
     renderRight();
+    autosaveNow();
   }
 
-  document.getElementById("notesInput").addEventListener("input", function(e){ state.notes = e.target.value; updateFieldSummary("notes"); });
-  document.getElementById("companyInput").addEventListener("input", function(e){ state.company = e.target.value; });
-  document.getElementById("eventInput").addEventListener("input", function(e){ state.event = e.target.value; });
-  document.getElementById("budgetInput").addEventListener("input", function(e){ state.budget = e.target.value; });
+  document.getElementById("notesInput").addEventListener("input", function(e){ state.notes = e.target.value; updateFieldSummary("notes"); autosaveDebounced(); });
+  document.getElementById("companyInput").addEventListener("input", function(e){ state.company = e.target.value; autosaveDebounced(); });
+  document.getElementById("eventInput").addEventListener("input", function(e){ state.event = e.target.value; autosaveDebounced(); });
+  document.getElementById("budgetInput").addEventListener("input", function(e){ state.budget = e.target.value; autosaveDebounced(); });
 
   function confBucket(conf){
     if (!conf) return "judgment";
@@ -830,6 +1087,7 @@
       earmarks[clusterKey] = opt.name;
       overridden[clusterKey] = true;
       renderRight();
+      autosaveNow();
     });
     return card;
   }
