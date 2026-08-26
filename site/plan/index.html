@@ -245,6 +245,7 @@
             <th data-col="industry">Industry</th>
             <th data-col="acctOwner">Acct Owner</th>
             <th data-col="rangeIncome" class="num">Revenue (range)</th>
+            <th data-col="pctOfTotal" class="num">% of Total</th>
             <th data-col="orderCount" class="num">Orders (lifetime)</th>
             <th data-col="lastInvoiceDate">Last Invoice</th>
             <th data-col="matched">Sage</th>
@@ -679,7 +680,15 @@
 
   // Roll members with the same familyKey (e.g. "Jack Henry", "Jack Henry-Golf",
   // "Jack Henry & Associates-Marketing") into one expandable group. Singletons pass through untouched.
-  function buildGroups(filtered){
+  function pctOf(value, total){
+    return total > 0 ? (value / total * 100) : 0;
+  }
+
+  function fmtPct(p){
+    return p.toFixed(1) + "%";
+  }
+
+  function buildGroups(filtered, totalRevenue){
     var byKey = {}, order = [];
     filtered.forEach(function(c){
       var key = c.familyKey || ("__single__" + c.company);
@@ -694,6 +703,7 @@
       var lastInvoiceDate = members.reduce(function(max, m){
         return (m.lastInvoiceDate && (!max || m.lastInvoiceDate > max)) ? m.lastInvoiceDate : max;
       }, null);
+      var rangeIncome = members.reduce(function(s,m){ return s + m.rangeIncome; }, 0);
       return {
         key: key,
         isGroup: isGroup,
@@ -701,7 +711,8 @@
         company: isGroup ? members[0].familyKey : members[0].company,
         industry: industries.length === 1 ? industries[0] : (isGroup ? "Multiple" : null),
         acctOwner: owners.length === 1 ? owners[0] : (isGroup ? "Multiple" : null),
-        rangeIncome: members.reduce(function(s,m){ return s + m.rangeIncome; }, 0),
+        rangeIncome: rangeIncome,
+        pctOfTotal: pctOf(rangeIncome, totalRevenue),
         orderCount: members.reduce(function(s,m){ return s + m.orderCount; }, 0),
         lastInvoiceDate: lastInvoiceDate,
         matched: members.some(function(m){ return m.matched; })
@@ -711,7 +722,9 @@
 
   function renderClientTable(filtered){
     var col = state.sortCol, dir = state.sortDir;
-    var groups = buildGroups(filtered);
+    var totalRevenue = filtered.reduce(function(s,c){ return s + c.rangeIncome; }, 0);
+    filtered.forEach(function(c){ c.pctOfTotal = pctOf(c.rangeIncome, totalRevenue); });
+    var groups = buildGroups(filtered, totalRevenue);
 
     groups.sort(function(a,b){
       var av = a[col], bv = b[col];
@@ -737,6 +750,7 @@
         "<td>" + (c.industry ? escapeHtml(c.industry) : '<span class="muted">—</span>') + "</td>" +
         "<td>" + (c.acctOwner ? escapeHtml(c.acctOwner) : '<span class="muted">—</span>') + "</td>" +
         "<td class=\"num\">" + fmtMoney(c.rangeIncome) + "</td>" +
+        "<td class=\"num\">" + fmtPct(c.pctOfTotal) + "</td>" +
         "<td class=\"num\">" + c.orderCount + "</td>" +
         "<td>" + (c.lastInvoiceDate ? escapeHtml(c.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
         "<td>" + (c.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
@@ -757,6 +771,7 @@
         "<td>" + (g.industry ? escapeHtml(g.industry) : '<span class="muted">—</span>') + "</td>" +
         "<td>" + (g.acctOwner ? escapeHtml(g.acctOwner) : '<span class="muted">—</span>') + "</td>" +
         "<td class=\"num\">" + fmtMoney(g.rangeIncome) + "</td>" +
+        "<td class=\"num\">" + fmtPct(g.pctOfTotal) + "</td>" +
         "<td class=\"num\">" + g.orderCount + "</td>" +
         "<td>" + (g.lastInvoiceDate ? escapeHtml(g.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
         "<td>" + (g.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
