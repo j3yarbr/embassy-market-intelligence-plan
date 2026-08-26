@@ -501,17 +501,48 @@
     document.getElementById("filterSummary").textContent = indText + " · " + repText + " · " + rangeText;
   }
 
+  function monthToMonthDelta(filteredCompanies, months){
+    if (months.length < 2) return null;
+    var lastM = months[months.length - 1];
+    var prevM = months[months.length - 2];
+    var lastVal = 0, prevVal = 0;
+    DATA.clients.forEach(function(c){
+      if (!filteredCompanies[c.company]) return;
+      lastVal += (c.monthly[lastM] || 0);
+      prevVal += (c.monthly[prevM] || 0);
+    });
+    return { lastM: lastM, prevM: prevM, lastVal: lastVal, prevVal: prevVal };
+  }
+
   function renderKpis(filtered, months){
-    var totalRevenue = 0, matchedCount = 0, unmatchedCount = 0, withRevenue = 0;
+    var totalRevenue = 0, withRevenue = 0;
     filtered.forEach(function(c){
       totalRevenue += c.rangeIncome;
-      if (c.matched) matchedCount++; else unmatchedCount++;
       if (c.rangeIncome > 0) withRevenue++;
     });
     var avgPerClient = withRevenue ? totalRevenue / withRevenue : 0;
 
     var filteredCompanies = {};
     filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
+
+    var mtm = monthToMonthDelta(filteredCompanies, months);
+    var mtmTile;
+    if (!mtm) {
+      mtmTile = { label: "Month-to-Month Delta", value: "—", sub: "select 2+ months to compare" };
+    } else if (mtm.prevVal <= 0) {
+      mtmTile = { label: "Month-to-Month Delta", value: "No " + monthLabel(mtm.prevM) + " data", sub: monthLabel(mtm.lastM) + " vs " + monthLabel(mtm.prevM) };
+    } else {
+      var mtmDelta = mtm.lastVal - mtm.prevVal;
+      var mtmPct = (mtmDelta / mtm.prevVal * 100);
+      var mtmCls = mtmDelta >= 0 ? "yoy-up" : "yoy-down";
+      var mtmArrow = mtmDelta >= 0 ? "▲" : "▼";
+      mtmTile = {
+        label: "Month-to-Month Delta",
+        valueHtml: '<span class="' + mtmCls + '">' + mtmArrow + ' ' + fmtMoney(Math.abs(mtmDelta)) + ' (' + (mtmPct>=0?"+":"") + mtmPct.toFixed(0) + '%)</span>',
+        sub: monthLabel(mtm.lastM) + " vs " + monthLabel(mtm.prevM)
+      };
+    }
+
     var yoy = priorYearSum(filteredCompanies, months);
     var yoyTile;
     if (yoy.monthsWithBaseline === 0) {
@@ -532,7 +563,7 @@
       { label: "Revenue in Range", value: fmtMoney(totalRevenue), sub: months.length + " month" + (months.length===1?"":"s") + " · " + filtered.length + " clients shown" },
       { label: "Clients with Revenue", value: withRevenue.toLocaleString(), sub: "of " + filtered.length + " matching filters" },
       { label: "Avg Revenue / Client", value: fmtMoney(avgPerClient), sub: "among clients with revenue" },
-      { label: "Not in Active Sage List", value: unmatchedCount.toLocaleString(), sub: "real revenue, no CRM match" },
+      mtmTile,
       yoyTile
     ];
     document.getElementById("kpiRow").innerHTML = tiles.map(function(t){
