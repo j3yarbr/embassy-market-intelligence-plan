@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan — Embassy Market Intelligence</title>
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>
+  :root{
+    --navy:#1f3752;
+    --navy-deep:#152840;
+    --blue:#2f6fed;
+    --blue-soft:#eaf1fe;
+    --blue-dark:#1d4fc4;
+    --gray-bg:#f4f6f9;
+    --gray-line:#e2e6ec;
+    --gray-text:#5b6572;
+    --white:#ffffff;
+    --live:#1f8a4c;
+    --live-bg:#e7f6ed;
+    --warn:#b3532e;
+    --warn-bg:#faeae4;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--gray-bg);
+    color:var(--navy-deep);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+
+  header{
+    background:var(--navy-deep);
+    color:var(--white);
+    padding:14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    position:sticky;
+    top:0;
+    z-index:20;
+  }
+  header .back{
+    font-size:13px;
+    text-decoration:none;
+    color:#b9c6d6;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    white-space:nowrap;
+  }
+  header .back:hover{color:var(--white);}
+  header .brand{
+    font-weight:700;
+    letter-spacing:0.06em;
+    font-size:14px;
+    text-transform:uppercase;
+  }
+  header .brand span{color:#7ea6f2;}
+  header .spacer{width:56px;}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:20px; min-width:0;}
+
+  /* KPI strip */
+  .kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;}
+  @media (max-width:760px){ .kpi-row{grid-template-columns:1fr 1fr;} }
+  .kpi-tile{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; padding:14px 16px; min-width:0;}
+  .kpi-label{font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--gray-text);}
+  .kpi-value{font-size:1.5rem; font-weight:800; color:var(--navy-deep); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .kpi-sub{font-size:0.74rem; color:var(--gray-text); margin-top:2px;}
+
+  /* Collapsible panel (filters) */
+  .panel{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; margin-bottom:16px; overflow:hidden;}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; cursor:pointer; user-select:none;}
+  .panel-head:hover{background:var(--blue-soft);}
+  .panel-title{font-weight:700; font-size:0.92rem; color:var(--navy-deep); display:flex; align-items:center; gap:8px;}
+  .panel-summary{font-size:0.78rem; color:var(--blue); font-weight:600;}
+  .panel-chevron{font-size:0.7rem; color:var(--gray-text); transition:transform 0.15s;}
+  .panel.open .panel-chevron{transform:rotate(90deg);}
+  .panel-body{display:none; padding:4px 16px 16px; border-top:1px solid var(--gray-line);}
+  .panel.open .panel-body{display:block;}
+
+  .filter-group{margin-top:12px;}
+  .filter-group:first-child{margin-top:14px;}
+  .filter-group-label{font-size:0.76rem; font-weight:700; color:var(--gray-text); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;}
+  .chip-row{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    font-size:0.8rem; font-weight:600; padding:5px 12px; border-radius:20px;
+    border:1.5px solid var(--gray-line); background:var(--white); color:var(--navy-deep);
+    cursor:pointer; white-space:nowrap;
+  }
+  .chip:hover{border-color:var(--blue);}
+  .chip.selected{background:var(--blue); border-color:var(--blue); color:var(--white);}
+  .range-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .range-row select{
+    font-family:inherit; font-size:0.85rem; padding:6px 10px; border-radius:8px;
+    border:1.5px solid var(--gray-line); background:var(--white); color:var(--navy-deep);
+  }
+  .clear-btn{
+    font-family:inherit; font-size:0.78rem; font-weight:700; color:var(--blue);
+    background:var(--blue-soft); border:none; border-radius:8px; padding:7px 14px; cursor:pointer; margin-top:14px;
+  }
+  .clear-btn:hover{background:var(--blue); color:var(--white);}
+
+  .section-title{font-size:1rem; font-weight:800; color:var(--navy-deep); margin:26px 0 10px;}
+  .section-note{font-size:0.78rem; color:var(--gray-text); margin:-4px 0 12px;}
+
+  /* Chart */
+  .chart-card{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; padding:16px; margin-bottom:16px;}
+  .chart-svg{width:100%; height:220px; display:block; overflow:visible;}
+  .bar{fill:var(--blue); cursor:pointer;}
+  .bar:hover{fill:var(--blue-dark);}
+  .chart-tooltip{
+    position:absolute; pointer-events:none; background:var(--navy-deep); color:var(--white);
+    font-size:0.76rem; font-weight:600; padding:6px 10px; border-radius:6px; white-space:nowrap;
+    transform:translate(-50%,-110%); opacity:0; transition:opacity 0.1s; z-index:5;
+  }
+  .chart-wrap{position:relative;}
+  .axis-label{font-size:9px; fill:var(--gray-text); font-family:inherit;}
+
+  /* Table */
+  .table-card{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; overflow:hidden; margin-bottom:16px;}
+  .table-toolbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-bottom:1px solid var(--gray-line); flex-wrap:wrap;}
+  .search-input{
+    font-family:inherit; font-size:0.85rem; padding:7px 12px; border-radius:8px;
+    border:1.5px solid var(--gray-line); background:var(--gray-bg); color:var(--navy-deep); min-width:220px;
+  }
+  .search-input:focus{outline:none; border-color:var(--blue); background:var(--white);}
+  .row-count{font-size:0.78rem; color:var(--gray-text);}
+  .table-scroll{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; font-size:0.84rem; min-width:760px;}
+  th{
+    text-align:left; padding:10px 14px; background:var(--gray-bg); color:var(--gray-text);
+    font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    cursor:pointer; white-space:nowrap; border-bottom:1px solid var(--gray-line); user-select:none;
+  }
+  th:hover{color:var(--navy-deep);}
+  th.sorted{color:var(--blue);}
+  td{padding:9px 14px; border-bottom:1px solid var(--gray-line); color:var(--navy-deep); white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--blue-soft);}
+  .num{text-align:right; font-variant-numeric:tabular-nums;}
+  .badge{font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap;}
+  .badge.matched{background:var(--live-bg); color:var(--live);}
+  .badge.unmatched{background:var(--warn-bg); color:var(--warn);}
+  .co-name{font-weight:700;}
+  .muted{color:var(--gray-text);}
+
+  .data-note{font-size:0.78rem; color:var(--gray-text); padding:12px 16px; background:var(--warn-bg); border-radius:10px; margin-bottom:16px; line-height:1.5;}
+  .data-note b{color:var(--warn);}
+
+  .footer-meta{font-size:0.72rem; color:var(--gray-text); text-align:center; padding:20px 0 40px;}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="../">&larr; Suite</a>
+  <div class="brand">EMBASSY <span>PLAN</span></div>
+  <div class="spacer"></div>
+</header>
+
+<div class="wrap">
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="panel" id="filterPanel">
+    <div class="panel-head" id="filterPanelHead">
+      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Filters</div>
+      <div class="panel-summary" id="filterSummary">All Industries · All Reps · All Time</div>
+    </div>
+    <div class="panel-body">
+      <div class="filter-group">
+        <div class="filter-group-label">Industry</div>
+        <div class="chip-row" id="industryChips"></div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-group-label">Account Owner</div>
+        <div class="chip-row" id="repChips"></div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-group-label">Month Range</div>
+        <div class="range-row">
+          <select id="fromMonth"></select>
+          <span class="muted">to</span>
+          <select id="toMonth"></select>
+        </div>
+      </div>
+      <button class="clear-btn" id="clearFiltersBtn">Clear all filters</button>
+    </div>
+  </div>
+
+  <div id="unmatchedNote"></div>
+
+  <div class="section-title">Month-to-Month Revenue</div>
+  <div class="section-note">Reacts to the filters above. Hover a bar for the exact figure.</div>
+  <div class="chart-card">
+    <div class="chart-wrap">
+      <svg class="chart-svg" id="chartSvg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+      <div class="chart-tooltip" id="chartTooltip"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="tableViewPanel">
+    <div class="panel-head" id="tableViewHead">
+      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Monthly figures (table view)</div>
+      <div class="panel-summary" id="tableViewSummary"></div>
+    </div>
+    <div class="panel-body">
+      <div class="table-scroll">
+        <table id="monthTable"><thead><tr><th>Month</th><th class="num">Revenue</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Client Sales (CRM)</div>
+  <div class="section-note">Aggregate revenue by client for the selected month range. Click a column to sort.</div>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search company...">
+      <div class="row-count" id="rowCount"></div>
+    </div>
+    <div class="table-scroll">
+      <table id="clientTable">
+        <thead>
+          <tr>
+            <th data-col="company">Company</th>
+            <th data-col="industry">Industry</th>
+            <th data-col="acctOwner">Acct Owner</th>
+            <th data-col="rangeIncome" class="num">Revenue (range)</th>
+            <th data-col="orderCount" class="num">Orders (lifetime)</th>
+            <th data-col="lastInvoiceDate">Last Invoice</th>
+            <th data-col="matched">Sage</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-meta" id="footerMeta"></div>
+
+</div>
+
+<script>
+(function(){
+  var DATA_URL = "./data.json";
+  var state = {
+    industries: new Set(),
+    reps: new Set(),
+    fromMonth: null,
+    toMonth: null,
+    search: "",
+    sortCol: "rangeIncome",
+    sortDir: "desc",
+    filtersOpen: false,
+    tableViewOpen: false
+  };
+  var DATA = null;
+  var NOT_IN_SAGE = "(Not in Sage)";
+
+  fetch(DATA_URL + "?t=" + Date.now(), {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ DATA = d; init(); })
+    .catch(function(err){
+      document.getElementById("kpiRow").innerHTML = '<div class="kpi-tile"><div class="kpi-label">Error</div><div class="kpi-value" style="font-size:0.95rem;">Could not load data.json</div></div>';
+      console.error(err);
+    });
+
+  function init(){
+    state.fromMonth = DATA.meta.months[0];
+    state.toMonth = DATA.meta.months[DATA.meta.months.length - 1];
+
+    buildFilterChips();
+    buildMonthSelects();
+    bindEvents();
+    renderUnmatchedNote();
+    renderAll();
+
+    document.getElementById("footerMeta").textContent =
+      "Data generated " + DATA.meta.generatedAt + " from QuickBooks Income by Customer + Transaction List, joined to the Sage active client export. " +
+      DATA.meta.matchedClients + " of " + DATA.meta.totalClients + " customers matched to an active Sage client.";
+  }
+
+  function monthLabel(mk){
+    var parts = mk.split("-");
+    var names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return names[parseInt(parts[1],10)-1] + " '" + parts[0].slice(2);
+  }
+
+  function fmtMoney(v){
+    return "$" + Math.round(v).toLocaleString("en-US");
+  }
+
+  function buildFilterChips(){
+    var industries = {}, reps = {};
+    DATA.clients.forEach(function(c){
+      var ind = c.industry || NOT_IN_SAGE;
+      var rep = c.acctOwner || NOT_IN_SAGE;
+      industries[ind] = true;
+      reps[rep] = true;
+    });
+    var indList = Object.keys(industries).sort(function(a,b){
+      if (a === NOT_IN_SAGE) return 1;
+      if (b === NOT_IN_SAGE) return -1;
+      return a.localeCompare(b);
+    });
+    var repList = Object.keys(reps).sort(function(a,b){
+      if (a === NOT_IN_SAGE) return 1;
+      if (b === NOT_IN_SAGE) return -1;
+      return a.localeCompare(b);
+    });
+
+    var indEl = document.getElementById("industryChips");
+    indEl.innerHTML = "";
+    indList.forEach(function(name){
+      var chip = document.createElement("div");
+      chip.className = "chip";
+      chip.textContent = name;
+      chip.addEventListener("click", function(){
+        toggleSetVal(state.industries, name);
+        chip.classList.toggle("selected", state.industries.has(name));
+        renderAll();
+      });
+      indEl.appendChild(chip);
+    });
+
+    var repEl = document.getElementById("repChips");
+    repEl.innerHTML = "";
+    repList.forEach(function(name){
+      var chip = document.createElement("div");
+      chip.className = "chip";
+      chip.textContent = name;
+      chip.addEventListener("click", function(){
+        toggleSetVal(state.reps, name);
+        chip.classList.toggle("selected", state.reps.has(name));
+        renderAll();
+      });
+      repEl.appendChild(chip);
+    });
+  }
+
+  function toggleSetVal(set, val){
+    if (set.has(val)) set.delete(val); else set.add(val);
+  }
+
+  function buildMonthSelects(){
+    var fromSel = document.getElementById("fromMonth");
+    var toSel = document.getElementById("toMonth");
+    fromSel.innerHTML = "";
+    toSel.innerHTML = "";
+    DATA.meta.months.forEach(function(mk){
+      var o1 = document.createElement("option"); o1.value = mk; o1.textContent = monthLabel(mk);
+      var o2 = document.createElement("option"); o2.value = mk; o2.textContent = monthLabel(mk);
+      fromSel.appendChild(o1);
+      toSel.appendChild(o2);
+    });
+    fromSel.value = state.fromMonth;
+    toSel.value = state.toMonth;
+    fromSel.addEventListener("change", function(){
+      state.fromMonth = fromSel.value;
+      if (state.fromMonth > state.toMonth) { state.toMonth = state.fromMonth; toSel.value = state.toMonth; }
+      renderAll();
+    });
+    toSel.addEventListener("change", function(){
+      state.toMonth = toSel.value;
+      if (state.toMonth < state.fromMonth) { state.fromMonth = state.toMonth; fromSel.value = state.fromMonth; }
+      renderAll();
+    });
+  }
+
+  function bindEvents(){
+    document.getElementById("filterPanelHead").addEventListener("click", function(){
+      state.filtersOpen = !state.filtersOpen;
+      document.getElementById("filterPanel").classList.toggle("open", state.filtersOpen);
+    });
+    document.getElementById("tableViewHead").addEventListener("click", function(){
+      state.tableViewOpen = !state.tableViewOpen;
+      document.getElementById("tableViewPanel").classList.toggle("open", state.tableViewOpen);
+    });
+    document.getElementById("clearFiltersBtn").addEventListener("click", function(e){
+      e.stopPropagation();
+      state.industries.clear();
+      state.reps.clear();
+      state.fromMonth = DATA.meta.months[0];
+      state.toMonth = DATA.meta.months[DATA.meta.months.length - 1];
+      document.getElementById("fromMonth").value = state.fromMonth;
+      document.getElementById("toMonth").value = state.toMonth;
+      document.querySelectorAll("#industryChips .chip, #repChips .chip").forEach(function(c){ c.classList.remove("selected"); });
+      renderAll();
+    });
+    document.getElementById("searchInput").addEventListener("input", function(e){
+      state.search = e.target.value.toLowerCase();
+      renderAll();
+    });
+    document.querySelectorAll("#clientTable th[data-col]").forEach(function(th){
+      th.addEventListener("click", function(){
+        var col = th.getAttribute("data-col");
+        if (state.sortCol === col) {
+          state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+        } else {
+          state.sortCol = col;
+          state.sortDir = (col === "company" || col === "industry" || col === "acctOwner" || col === "matched") ? "asc" : "desc";
+        }
+        renderAll();
+      });
+    });
+  }
+
+  function monthsInRange(){
+    return DATA.meta.months.filter(function(m){ return m >= state.fromMonth && m <= state.toMonth; });
+  }
+
+  function clientPassesChipFilters(c){
+    var ind = c.industry || NOT_IN_SAGE;
+    var rep = c.acctOwner || NOT_IN_SAGE;
+    if (state.industries.size > 0 && !state.industries.has(ind)) return false;
+    if (state.reps.size > 0 && !state.reps.has(rep)) return false;
+    if (state.search && c.company.toLowerCase().indexOf(state.search) === -1) return false;
+    return true;
+  }
+
+  function rangeIncomeFor(c, months){
+    var sum = 0;
+    for (var i = 0; i < months.length; i++){
+      sum += (c.monthly[months[i]] || 0);
+    }
+    return sum;
+  }
+
+  function renderAll(){
+    var months = monthsInRange();
+    var filtered = DATA.clients.filter(clientPassesChipFilters).map(function(c){
+      return {
+        company: c.company, industry: c.industry, acctOwner: c.acctOwner,
+        lastInvoiceDate: c.lastInvoiceDate, matched: c.matched, orderCount: c.orderCount,
+        rangeIncome: rangeIncomeFor(c, months)
+      };
+    });
+
+    renderFilterSummary(months);
+    renderKpis(filtered, months);
+    renderChart(months, filtered);
+    renderMonthTable(months, filtered);
+    renderClientTable(filtered);
+  }
+
+  function renderFilterSummary(months){
+    var indText = state.industries.size === 0 ? "All Industries" : (state.industries.size + " Industr" + (state.industries.size===1?"y":"ies"));
+    var repText = state.reps.size === 0 ? "All Reps" : (state.reps.size + " Rep" + (state.reps.size===1?"":"s"));
+    var rangeText = months.length ? (monthLabel(months[0]) + " – " + monthLabel(months[months.length-1])) : "No months";
+    document.getElementById("filterSummary").textContent = indText + " · " + repText + " · " + rangeText;
+  }
+
+  function renderKpis(filtered, months){
+    var totalRevenue = 0, matchedCount = 0, unmatchedCount = 0, withRevenue = 0;
+    filtered.forEach(function(c){
+      totalRevenue += c.rangeIncome;
+      if (c.matched) matchedCount++; else unmatchedCount++;
+      if (c.rangeIncome > 0) withRevenue++;
+    });
+    var avgPerClient = withRevenue ? totalRevenue / withRevenue : 0;
+
+    var tiles = [
+      { label: "Revenue in Range", value: fmtMoney(totalRevenue), sub: months.length + " month" + (months.length===1?"":"s") + " · " + filtered.length + " clients shown" },
+      { label: "Clients with Revenue", value: withRevenue.toLocaleString(), sub: "of " + filtered.length + " matching filters" },
+      { label: "Avg Revenue / Client", value: fmtMoney(avgPerClient), sub: "among clients with revenue" },
+      { label: "Not in Active Sage List", value: unmatchedCount.toLocaleString(), sub: "real revenue, no CRM match" }
+    ];
+    document.getElementById("kpiRow").innerHTML = tiles.map(function(t){
+      return '<div class="kpi-tile"><div class="kpi-label">' + t.label + '</div><div class="kpi-value">' + t.value + '</div><div class="kpi-sub">' + t.sub + '</div></div>';
+    }).join("");
+  }
+
+  function renderUnmatchedNote(){
+    var n = DATA.unmatched.length;
+    if (n === 0) return;
+    document.getElementById("unmatchedNote").innerHTML =
+      '<div class="data-note"><b>Data note:</b> ' + n + ' QuickBooks customers with real revenue in this period aren\'t in the current active Sage client export (' +
+      'likely inactive/lapsed accounts, or never formally added). Their revenue is included in every figure on this page — Industry and Account Owner just show blank for them. ' +
+      'Use the search box or the "Sage" column below to find them.</div>';
+  }
+
+  function renderChart(months, filtered){
+    var svg = document.getElementById("chartSvg");
+    var tooltip = document.getElementById("chartTooltip");
+    var byMonth = {};
+    months.forEach(function(m){ byMonth[m] = 0; });
+    var filteredCompanies = {};
+    filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
+    DATA.clients.forEach(function(c){
+      if (!filteredCompanies[c.company]) return;
+      months.forEach(function(m){
+        byMonth[m] += (c.monthly[m] || 0);
+      });
+    });
+
+    var W = 1000, H = 220, padL = 4, padR = 4, padB = 22, padT = 10;
+    var chartW = W - padL - padR, chartH = H - padT - padB;
+    var n = months.length || 1;
+    var gap = 2;
+    var barW = Math.max(2, (chartW / n) - gap);
+    var maxVal = Math.max.apply(null, months.map(function(m){ return byMonth[m]; }).concat([1]));
+
+    var svgParts = [];
+    var labelEvery = Math.ceil(n / 14) || 1;
+    months.forEach(function(m, i){
+      var val = byMonth[m];
+      var x = padL + i * (chartW / n) + gap/2;
+      var h = maxVal > 0 ? (val / maxVal) * chartH : 0;
+      var y = padT + chartH - h;
+      svgParts.push('<rect class="bar" data-month="' + m + '" data-val="' + val.toFixed(2) + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(h,1).toFixed(1) + '" rx="3"></rect>');
+      if (i % labelEvery === 0) {
+        svgParts.push('<text class="axis-label" x="' + (x + barW/2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + monthLabel(m) + '</text>');
+      }
+    });
+    svg.innerHTML = svgParts.join("");
+
+    svg.querySelectorAll(".bar").forEach(function(bar){
+      bar.addEventListener("mousemove", function(e){
+        var rect = svg.getBoundingClientRect();
+        var mk = bar.getAttribute("data-month");
+        var val = parseFloat(bar.getAttribute("data-val"));
+        tooltip.textContent = monthLabel(mk) + ": " + fmtMoney(val);
+        tooltip.style.left = (e.clientX - rect.left) + "px";
+        tooltip.style.top = (e.clientY - rect.top) + "px";
+        tooltip.style.opacity = "1";
+      });
+      bar.addEventListener("mouseleave", function(){ tooltip.style.opacity = "0"; });
+    });
+  }
+
+  function renderMonthTable(months, filtered){
+    var filteredCompanies = {};
+    filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
+    var byMonth = {};
+    months.forEach(function(m){ byMonth[m] = 0; });
+    DATA.clients.forEach(function(c){
+      if (!filteredCompanies[c.company]) return;
+      months.forEach(function(m){ byMonth[m] += (c.monthly[m] || 0); });
+    });
+    var tbody = document.querySelector("#monthTable tbody");
+    tbody.innerHTML = months.slice().reverse().map(function(m){
+      return "<tr><td>" + monthLabel(m) + "</td><td class=\"num\">" + fmtMoney(byMonth[m]) + "</td></tr>";
+    }).join("");
+    document.getElementById("tableViewSummary").textContent = months.length + " months";
+  }
+
+  function renderClientTable(filtered){
+    var col = state.sortCol, dir = state.sortDir;
+    var sorted = filtered.slice().sort(function(a,b){
+      var av = a[col], bv = b[col];
+      if (col === "matched") { av = a.matched ? 1 : 0; bv = b.matched ? 1 : 0; }
+      if (av === null || av === undefined) av = "";
+      if (bv === null || bv === undefined) bv = "";
+      if (typeof av === "string") av = av.toLowerCase();
+      if (typeof bv === "string") bv = bv.toLowerCase();
+      if (av < bv) return dir === "asc" ? -1 : 1;
+      if (av > bv) return dir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    document.querySelectorAll("#clientTable th[data-col]").forEach(function(th){
+      th.classList.toggle("sorted", th.getAttribute("data-col") === col);
+    });
+
+    var tbody = document.querySelector("#clientTable tbody");
+    tbody.innerHTML = sorted.map(function(c){
+      return "<tr>" +
+        "<td class=\"co-name\">" + escapeHtml(c.company) + "</td>" +
+        "<td>" + (c.industry ? escapeHtml(c.industry) : '<span class="muted">—</span>') + "</td>" +
+        "<td>" + (c.acctOwner ? escapeHtml(c.acctOwner) : '<span class="muted">—</span>') + "</td>" +
+        "<td class=\"num\">" + fmtMoney(c.rangeIncome) + "</td>" +
+        "<td class=\"num\">" + c.orderCount + "</td>" +
+        "<td>" + (c.lastInvoiceDate ? escapeHtml(c.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
+        "<td>" + (c.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
+        "</tr>";
+    }).join("");
+
+    document.getElementById("rowCount").textContent = sorted.length.toLocaleString() + " clients";
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+})();
+</script>
+
+<script>
+(function(){
+  var VERSION_URL = "../version.json";
+  var CHECK_INTERVAL_MS = 60000;
+  var seenSha = null;
+
+  function checkVersion(){
+    fetch(VERSION_URL + "?t=" + Date.now(), {cache: "no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(v){
+        if (seenSha === null) { seenSha = v.sha; return; }
+        if (v.sha && v.sha !== seenSha) showBanner();
+      })
+      .catch(function(){});
+  }
+  function showBanner(){
+    if (document.getElementById("update-banner")) return;
+    var el = document.createElement("div");
+    el.id = "update-banner";
+    el.style.cssText = "position:fixed;left:0;right:0;bottom:0;background:#152840;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:center;gap:14px;font:600 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;z-index:999999;box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
+    el.innerHTML = 'A newer version of this page is available. <button id="update-banner-btn" style="background:#2f6fed;color:#fff;border:none;border-radius:8px;padding:8px 16px;font:inherit;cursor:pointer;">Refresh</button>';
+    document.body.appendChild(el);
+    document.getElementById("update-banner-btn").addEventListener("click", function(){ location.reload(); });
+  }
+  checkVersion();
+  setInterval(checkVersion, CHECK_INTERVAL_MS);
+})();
+</script>
+
+</body>
+</html>
