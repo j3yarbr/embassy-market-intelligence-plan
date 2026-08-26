@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plan — Embassy Market Intelligence</title>
 <link rel="icon" type="image/png" href="../favicon.png">
+<link rel="shortcut icon" type="image/x-icon" href="../favicon.ico">
 <link rel="apple-touch-icon" href="../favicon.png">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#152840">
@@ -163,6 +164,15 @@
   tr.member-row td.co-name{font-weight:500; padding-left:34px;}
   tr.member-row:hover td{background:var(--gray-bg);}
 
+  tr.month-row{cursor:pointer;}
+  tr.month-row:hover td{background:var(--blue-soft);}
+  tr.month-detail-row td{background:var(--gray-bg); padding:14px 16px;}
+  .month-detail-cols{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  @media (max-width:600px){ .month-detail-cols{grid-template-columns:1fr;} }
+  .month-detail-list{font-size:0.8rem;}
+  .month-detail-list-title{font-weight:700; color:var(--navy-deep); margin-bottom:6px;}
+  .month-detail-item{display:flex; justify-content:space-between; gap:10px; padding:2px 0; color:var(--navy-deep); font-variant-numeric:tabular-nums;}
+
   .data-note{font-size:0.78rem; color:var(--gray-text); padding:12px 16px; background:var(--warn-bg); border-radius:10px; margin-bottom:16px; line-height:1.5;}
   .data-note b{color:var(--warn);}
 
@@ -233,18 +243,23 @@
     </div>
   </div>
 
-  <div class="section-title">Client Sales (CRM)</div>
-  <div class="section-note">Aggregate revenue by client for the selected month range. Click a column to sort.</div>
-  <div class="table-card">
-    <div class="table-toolbar">
-      <input type="text" class="search-input" id="searchInput" placeholder="Search company...">
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div class="row-count" id="rowCount"></div>
-        <button class="clear-btn" id="exportClientsBtn" style="margin-top:0;">Export CSV</button>
-      </div>
+  <div class="panel" id="clientTablePanel">
+    <div class="panel-head" id="clientTableHead">
+      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Client Sales (CRM)</div>
+      <div class="panel-summary" id="clientTableSummary"></div>
     </div>
-    <div class="table-scroll">
-      <table id="clientTable">
+    <div class="panel-body">
+      <div class="section-note" style="margin-top:10px;">Aggregate revenue by client for the selected month range. Click a column to sort.</div>
+      <div class="table-card">
+        <div class="table-toolbar">
+          <input type="text" class="search-input" id="searchInput" placeholder="Search company...">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="row-count" id="rowCount"></div>
+            <button class="clear-btn" id="exportClientsBtn" style="margin-top:0;">Export CSV</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="clientTable">
         <thead>
           <tr>
             <th data-col="company">Company</th>
@@ -258,7 +273,9 @@
           </tr>
         </thead>
         <tbody></tbody>
-      </table>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -279,7 +296,9 @@
     sortDir: "desc",
     filtersOpen: false,
     tableViewOpen: false,
-    expandedGroups: new Set()
+    clientTableOpen: false,
+    expandedGroups: new Set(),
+    expandedMonths: new Set()
   };
   var DATA = null;
   var NOT_IN_SAGE = "(Not in Sage)";
@@ -402,6 +421,17 @@
     document.getElementById("tableViewHead").addEventListener("click", function(){
       state.tableViewOpen = !state.tableViewOpen;
       document.getElementById("tableViewPanel").classList.toggle("open", state.tableViewOpen);
+    });
+    document.getElementById("clientTableHead").addEventListener("click", function(){
+      state.clientTableOpen = !state.clientTableOpen;
+      document.getElementById("clientTablePanel").classList.toggle("open", state.clientTableOpen);
+    });
+    document.querySelector("#monthTable tbody").addEventListener("click", function(e){
+      var row = e.target.closest("tr.month-row");
+      if (!row) return;
+      var mk = row.getAttribute("data-month-key");
+      if (state.expandedMonths.has(mk)) state.expandedMonths.delete(mk); else state.expandedMonths.add(mk);
+      renderMonthTable(monthsInRange(), lastFiltered);
     });
     document.getElementById("clearFiltersBtn").addEventListener("click", function(e){
       e.stopPropagation();
@@ -646,6 +676,29 @@
     });
   }
 
+  var MONTH_DETAIL_LIMIT = 12;
+
+  // Sorted [{company, amount}] of every filtered client with nonzero revenue in month key `mk`.
+  function companiesForMonth(mk, filteredCompanies){
+    var out = [];
+    DATA.clients.forEach(function(c){
+      if (!filteredCompanies[c.company]) return;
+      var v = c.monthly[mk] || 0;
+      if (v > 0) out.push({ company: c.company, amount: v });
+    });
+    out.sort(function(a,b){ return b.amount - a.amount; });
+    return out;
+  }
+
+  function monthCompanyListHtml(title, list){
+    var shown = list.slice(0, MONTH_DETAIL_LIMIT);
+    var items = shown.length
+      ? shown.map(function(x){ return '<div class="month-detail-item"><span>' + escapeHtml(x.company) + '</span><span>' + fmtMoney(x.amount) + '</span></div>'; }).join("")
+      : '<div class="muted">No companies with revenue this month</div>';
+    var more = list.length > MONTH_DETAIL_LIMIT ? '<div class="muted" style="margin-top:4px;">+' + (list.length - MONTH_DETAIL_LIMIT) + ' more not shown</div>' : "";
+    return '<div class="month-detail-list"><div class="month-detail-list-title">' + escapeHtml(title) + ' (' + list.length + ')</div>' + items + more + '</div>';
+  }
+
   function renderMonthTable(months, filtered){
     var filteredCompanies = {};
     filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
@@ -673,9 +726,18 @@
         var arrow = delta >= 0 ? "▲" : "▼";
         yoyCell = '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(delta)) + ' (' + (pct>=0?"+":"") + pct.toFixed(0) + '%)</span>';
       }
-      return "<tr><td>" + monthLabel(m) + "</td><td class=\"num\">" + fmtMoney(byMonth[m]) + "</td>" +
+      var expanded = state.expandedMonths.has(m);
+      var row = "<tr class=\"month-row\" data-month-key=\"" + escapeHtml(m) + "\">" +
+        "<td><span class=\"group-toggle\">" + (expanded ? "▾" : "▸") + "</span>" + monthLabel(m) + "</td>" +
+        "<td class=\"num\">" + fmtMoney(byMonth[m]) + "</td>" +
         "<td class=\"num\">" + (priorVal > 0 ? fmtMoney(priorVal) : '<span class="muted">—</span>') + "</td>" +
         "<td class=\"num\">" + yoyCell + "</td></tr>";
+      if (!expanded) return row;
+      var detail = '<div class="month-detail-cols">' +
+        monthCompanyListHtml("Companies — " + monthLabel(m), companiesForMonth(m, filteredCompanies)) +
+        monthCompanyListHtml("Companies — " + monthLabel(pk), companiesForMonth(pk, filteredCompanies)) +
+        '</div>';
+      return row + "<tr class=\"month-detail-row\"><td colspan=\"4\">" + detail + "</td></tr>";
     }).join("");
     document.getElementById("tableViewSummary").textContent = months.length + " months";
   }
@@ -793,6 +855,7 @@
     var groupCount = groups.filter(function(g){ return g.isGroup; }).length;
     document.getElementById("rowCount").textContent = filtered.length.toLocaleString() + " clients" +
       (groupCount ? " (" + groupCount + " grouped into rollups)" : "");
+    document.getElementById("clientTableSummary").textContent = filtered.length.toLocaleString() + " clients · " + fmtMoney(totalRevenue);
   }
 
   function escapeHtml(s){
