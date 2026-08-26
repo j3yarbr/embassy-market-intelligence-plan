@@ -68,7 +68,8 @@
   .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:16px;}
   .kpi-tile{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; padding:14px 16px; min-width:0;}
   .kpi-label{font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--gray-text);}
-  .kpi-value{font-size:1.5rem; font-weight:800; color:var(--navy-deep); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .kpi-value{font-size:1.5rem; font-weight:800; color:var(--navy-deep); margin-top:4px; white-space:normal; word-break:break-word; line-height:1.2;}
+  .kpi-value.compact{font-size:1.1rem;}
   .kpi-sub{font-size:0.74rem; color:var(--gray-text); margin-top:2px;}
 
   /* Collapsible panel (filters) */
@@ -539,7 +540,8 @@
       mtmTile = {
         label: "Month-to-Month Delta",
         valueHtml: '<span class="' + mtmCls + '">' + mtmArrow + ' ' + fmtMoney(Math.abs(mtmDelta)) + ' (' + (mtmPct>=0?"+":"") + mtmPct.toFixed(0) + '%)</span>',
-        sub: monthLabel(mtm.lastM) + " vs " + monthLabel(mtm.prevM)
+        sub: monthLabel(mtm.lastM) + " vs " + monthLabel(mtm.prevM),
+        compact: true
       };
     }
 
@@ -556,7 +558,7 @@
       var coverageNote = yoy.monthsWithBaseline < months.length
         ? (yoy.monthsWithBaseline + " of " + months.length + " months have a prior-year baseline")
         : "vs. same months last year";
-      yoyTile = { label: "YoY Change", valueHtml: '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(yoyDelta)) + pctText + '</span>', sub: coverageNote };
+      yoyTile = { label: "YoY Change", valueHtml: '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(yoyDelta)) + pctText + '</span>', sub: coverageNote, compact: true };
     }
 
     var tiles = [
@@ -568,7 +570,8 @@
     ];
     document.getElementById("kpiRow").innerHTML = tiles.map(function(t){
       var val = t.valueHtml ? t.valueHtml : t.value;
-      return '<div class="kpi-tile"><div class="kpi-label">' + t.label + '</div><div class="kpi-value">' + val + '</div><div class="kpi-sub">' + t.sub + '</div></div>';
+      var cls = "kpi-value" + (t.compact ? " compact" : "");
+      return '<div class="kpi-tile"><div class="kpi-label">' + t.label + '</div><div class="' + cls + '">' + val + '</div><div class="kpi-sub">' + t.sub + '</div></div>';
     }).join("");
   }
 
