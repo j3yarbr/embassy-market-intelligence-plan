@@ -65,8 +65,7 @@
   .wrap{max-width:1180px; margin:0 auto; padding:20px; min-width:0;}
 
   /* KPI strip */
-  .kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;}
-  @media (max-width:760px){ .kpi-row{grid-template-columns:1fr 1fr;} }
+  .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:16px;}
   .kpi-tile{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; padding:14px 16px; min-width:0;}
   .kpi-label{font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--gray-text);}
   .kpi-value{font-size:1.5rem; font-weight:800; color:var(--navy-deep); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -148,6 +147,17 @@
   .badge.unmatched{background:var(--warn-bg); color:var(--warn);}
   .co-name{font-weight:700;}
   .muted{color:var(--gray-text);}
+  .yoy-up{color:var(--live); font-weight:700;}
+  .yoy-down{color:var(--warn); font-weight:700;}
+
+  tr.group-row{cursor:pointer;}
+  tr.group-row td{background:var(--blue-soft);}
+  tr.group-row:hover td{background:var(--blue-soft);}
+  .group-toggle{display:inline-block; width:14px; color:var(--blue); font-weight:700;}
+  .group-count{font-size:0.68rem; font-weight:700; color:var(--blue); background:var(--white); padding:1px 7px; border-radius:10px; margin-left:8px;}
+  tr.member-row td{background:var(--gray-bg); color:var(--gray-text); font-size:0.8rem;}
+  tr.member-row td.co-name{font-weight:500; padding-left:34px;}
+  tr.member-row:hover td{background:var(--gray-bg);}
 
   .data-note{font-size:0.78rem; color:var(--gray-text); padding:12px 16px; background:var(--warn-bg); border-radius:10px; margin-bottom:16px; line-height:1.5;}
   .data-note b{color:var(--warn);}
@@ -211,7 +221,7 @@
     </div>
     <div class="panel-body">
       <div class="table-scroll">
-        <table id="monthTable"><thead><tr><th>Month</th><th class="num">Revenue</th></tr></thead><tbody></tbody></table>
+        <table id="monthTable"><thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">Same Month Last Year</th><th class="num">YoY Δ</th></tr></thead><tbody></tbody></table>
       </div>
     </div>
   </div>
@@ -257,7 +267,8 @@
     sortCol: "rangeIncome",
     sortDir: "desc",
     filtersOpen: false,
-    tableViewOpen: false
+    tableViewOpen: false,
+    expandedGroups: new Set()
   };
   var DATA = null;
   var NOT_IN_SAGE = "(Not in Sage)";
@@ -396,6 +407,13 @@
       state.search = e.target.value.toLowerCase();
       renderAll();
     });
+    document.querySelector("#clientTable tbody").addEventListener("click", function(e){
+      var row = e.target.closest("tr.group-row");
+      if (!row) return;
+      var key = row.getAttribute("data-group-key");
+      if (state.expandedGroups.has(key)) state.expandedGroups.delete(key); else state.expandedGroups.add(key);
+      renderClientTable(lastFiltered);
+    });
     document.querySelectorAll("#clientTable th[data-col]").forEach(function(th){
       th.addEventListener("click", function(){
         var col = th.getAttribute("data-col");
@@ -431,15 +449,43 @@
     return sum;
   }
 
+  // "2026-02" -> "2025-02". Returns null for malformed input.
+  function priorYearKey(mk){
+    var parts = mk.split("-");
+    if (parts.length !== 2) return null;
+    return (parseInt(parts[0],10) - 1) + "-" + parts[1];
+  }
+
+  // Sum of monthly[priorYearKey(m)] across the given company set, for every month in `months`.
+  // Returns {total, monthsWithBaseline} -- a month only counts toward the baseline if the prior
+  // year actually has revenue (0/missing prior data reads as "no comparison", not "down 100%").
+  function priorYearSum(filteredCompanies, months){
+    var total = 0, monthsWithBaseline = 0;
+    months.forEach(function(m){
+      var pk = priorYearKey(m);
+      var sum = 0;
+      DATA.clients.forEach(function(c){
+        if (!filteredCompanies[c.company]) return;
+        sum += (c.monthly[pk] || 0);
+      });
+      if (sum > 0) { total += sum; monthsWithBaseline++; }
+    });
+    return { total: total, monthsWithBaseline: monthsWithBaseline };
+  }
+
+  var lastFiltered = null;
+
   function renderAll(){
     var months = monthsInRange();
     var filtered = DATA.clients.filter(clientPassesChipFilters).map(function(c){
       return {
         company: c.company, industry: c.industry, acctOwner: c.acctOwner,
         lastInvoiceDate: c.lastInvoiceDate, matched: c.matched, orderCount: c.orderCount,
+        familyKey: c.familyKey,
         rangeIncome: rangeIncomeFor(c, months)
       };
     });
+    lastFiltered = filtered;
 
     renderFilterSummary(months);
     renderKpis(filtered, months);
@@ -464,14 +510,34 @@
     });
     var avgPerClient = withRevenue ? totalRevenue / withRevenue : 0;
 
+    var filteredCompanies = {};
+    filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
+    var yoy = priorYearSum(filteredCompanies, months);
+    var yoyTile;
+    if (yoy.monthsWithBaseline === 0) {
+      yoyTile = { label: "YoY Change", value: "Not enough history", sub: "no matching prior-year data yet" };
+    } else {
+      var yoyDelta = totalRevenue - yoy.total;
+      var yoyPct = yoy.total > 0 ? (yoyDelta / yoy.total * 100) : null;
+      var arrow = yoyDelta >= 0 ? "▲" : "▼";
+      var cls = yoyDelta >= 0 ? "yoy-up" : "yoy-down";
+      var pctText = yoyPct === null ? "" : (" (" + (yoyPct >= 0 ? "+" : "") + yoyPct.toFixed(0) + "%)");
+      var coverageNote = yoy.monthsWithBaseline < months.length
+        ? (yoy.monthsWithBaseline + " of " + months.length + " months have a prior-year baseline")
+        : "vs. same months last year";
+      yoyTile = { label: "YoY Change", valueHtml: '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(yoyDelta)) + pctText + '</span>', sub: coverageNote };
+    }
+
     var tiles = [
       { label: "Revenue in Range", value: fmtMoney(totalRevenue), sub: months.length + " month" + (months.length===1?"":"s") + " · " + filtered.length + " clients shown" },
       { label: "Clients with Revenue", value: withRevenue.toLocaleString(), sub: "of " + filtered.length + " matching filters" },
       { label: "Avg Revenue / Client", value: fmtMoney(avgPerClient), sub: "among clients with revenue" },
-      { label: "Not in Active Sage List", value: unmatchedCount.toLocaleString(), sub: "real revenue, no CRM match" }
+      { label: "Not in Active Sage List", value: unmatchedCount.toLocaleString(), sub: "real revenue, no CRM match" },
+      yoyTile
     ];
     document.getElementById("kpiRow").innerHTML = tiles.map(function(t){
-      return '<div class="kpi-tile"><div class="kpi-label">' + t.label + '</div><div class="kpi-value">' + t.value + '</div><div class="kpi-sub">' + t.sub + '</div></div>';
+      var val = t.valueHtml ? t.valueHtml : t.value;
+      return '<div class="kpi-tile"><div class="kpi-label">' + t.label + '</div><div class="kpi-value">' + val + '</div><div class="kpi-sub">' + t.sub + '</div></div>';
     }).join("");
   }
 
@@ -544,14 +610,72 @@
     });
     var tbody = document.querySelector("#monthTable tbody");
     tbody.innerHTML = months.slice().reverse().map(function(m){
-      return "<tr><td>" + monthLabel(m) + "</td><td class=\"num\">" + fmtMoney(byMonth[m]) + "</td></tr>";
+      var pk = priorYearKey(m);
+      var priorVal = 0;
+      DATA.clients.forEach(function(c){
+        if (!filteredCompanies[c.company]) return;
+        priorVal += (c.monthly[pk] || 0);
+      });
+      var yoyCell;
+      if (priorVal <= 0) {
+        yoyCell = '<span class="muted">No ' + pk.split("-")[0] + ' data</span>';
+      } else {
+        var delta = byMonth[m] - priorVal;
+        var pct = (delta / priorVal * 100);
+        var cls = delta >= 0 ? "yoy-up" : "yoy-down";
+        var arrow = delta >= 0 ? "▲" : "▼";
+        yoyCell = '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(delta)) + ' (' + (pct>=0?"+":"") + pct.toFixed(0) + '%)</span>';
+      }
+      return "<tr><td>" + monthLabel(m) + "</td><td class=\"num\">" + fmtMoney(byMonth[m]) + "</td>" +
+        "<td class=\"num\">" + (priorVal > 0 ? fmtMoney(priorVal) : '<span class="muted">—</span>') + "</td>" +
+        "<td class=\"num\">" + yoyCell + "</td></tr>";
     }).join("");
     document.getElementById("tableViewSummary").textContent = months.length + " months";
   }
 
+  function uniqValues(arr){
+    var seen = {}, out = [];
+    arr.forEach(function(v){ if (v && !seen[v]) { seen[v] = true; out.push(v); } });
+    return out;
+  }
+
+  // Roll members with the same familyKey (e.g. "Jack Henry", "Jack Henry-Golf",
+  // "Jack Henry & Associates-Marketing") into one expandable group. Singletons pass through untouched.
+  function buildGroups(filtered){
+    var byKey = {}, order = [];
+    filtered.forEach(function(c){
+      var key = c.familyKey || ("__single__" + c.company);
+      if (!byKey[key]) { byKey[key] = []; order.push(key); }
+      byKey[key].push(c);
+    });
+    return order.map(function(key){
+      var members = byKey[key].slice().sort(function(a,b){ return b.rangeIncome - a.rangeIncome; });
+      var isGroup = members.length > 1;
+      var industries = uniqValues(members.map(function(m){ return m.industry; }));
+      var owners = uniqValues(members.map(function(m){ return m.acctOwner; }));
+      var lastInvoiceDate = members.reduce(function(max, m){
+        return (m.lastInvoiceDate && (!max || m.lastInvoiceDate > max)) ? m.lastInvoiceDate : max;
+      }, null);
+      return {
+        key: key,
+        isGroup: isGroup,
+        members: members,
+        company: isGroup ? members[0].familyKey : members[0].company,
+        industry: industries.length === 1 ? industries[0] : (isGroup ? "Multiple" : null),
+        acctOwner: owners.length === 1 ? owners[0] : (isGroup ? "Multiple" : null),
+        rangeIncome: members.reduce(function(s,m){ return s + m.rangeIncome; }, 0),
+        orderCount: members.reduce(function(s,m){ return s + m.orderCount; }, 0),
+        lastInvoiceDate: lastInvoiceDate,
+        matched: members.some(function(m){ return m.matched; })
+      };
+    });
+  }
+
   function renderClientTable(filtered){
     var col = state.sortCol, dir = state.sortDir;
-    var sorted = filtered.slice().sort(function(a,b){
+    var groups = buildGroups(filtered);
+
+    groups.sort(function(a,b){
       var av = a[col], bv = b[col];
       if (col === "matched") { av = a.matched ? 1 : 0; bv = b.matched ? 1 : 0; }
       if (av === null || av === undefined) av = "";
@@ -567,9 +691,10 @@
       th.classList.toggle("sorted", th.getAttribute("data-col") === col);
     });
 
-    var tbody = document.querySelector("#clientTable tbody");
-    tbody.innerHTML = sorted.map(function(c){
-      return "<tr>" +
+    var searching = !!state.search;
+
+    function clientRowHtml(c, isMember){
+      return "<tr" + (isMember ? " class=\"member-row\"" : "") + ">" +
         "<td class=\"co-name\">" + escapeHtml(c.company) + "</td>" +
         "<td>" + (c.industry ? escapeHtml(c.industry) : '<span class="muted">—</span>') + "</td>" +
         "<td>" + (c.acctOwner ? escapeHtml(c.acctOwner) : '<span class="muted">—</span>') + "</td>" +
@@ -578,9 +703,35 @@
         "<td>" + (c.lastInvoiceDate ? escapeHtml(c.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
         "<td>" + (c.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
         "</tr>";
-    }).join("");
+    }
 
-    document.getElementById("rowCount").textContent = sorted.length.toLocaleString() + " clients";
+    var tbody = document.querySelector("#clientTable tbody");
+    var rowsHtml = [];
+    groups.forEach(function(g){
+      if (!g.isGroup) {
+        rowsHtml.push(clientRowHtml(g.members[0], false));
+        return;
+      }
+      var expanded = state.expandedGroups.has(g.key) || searching;
+      rowsHtml.push("<tr class=\"group-row\" data-group-key=\"" + escapeHtml(g.key) + "\">" +
+        "<td class=\"co-name\"><span class=\"group-toggle\">" + (expanded ? "▾" : "▸") + "</span>" + escapeHtml(g.company) +
+          "<span class=\"group-count\">" + g.members.length + " accounts</span></td>" +
+        "<td>" + (g.industry ? escapeHtml(g.industry) : '<span class="muted">—</span>') + "</td>" +
+        "<td>" + (g.acctOwner ? escapeHtml(g.acctOwner) : '<span class="muted">—</span>') + "</td>" +
+        "<td class=\"num\">" + fmtMoney(g.rangeIncome) + "</td>" +
+        "<td class=\"num\">" + g.orderCount + "</td>" +
+        "<td>" + (g.lastInvoiceDate ? escapeHtml(g.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
+        "<td>" + (g.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
+        "</tr>");
+      if (expanded) {
+        g.members.forEach(function(m){ rowsHtml.push(clientRowHtml(m, true)); });
+      }
+    });
+    tbody.innerHTML = rowsHtml.join("");
+
+    var groupCount = groups.filter(function(g){ return g.isGroup; }).length;
+    document.getElementById("rowCount").textContent = filtered.length.toLocaleString() + " clients" +
+      (groupCount ? " (" + groupCount + " grouped into rollups)" : "");
   }
 
   function escapeHtml(s){
