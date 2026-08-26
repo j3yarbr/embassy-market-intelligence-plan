@@ -224,6 +224,9 @@
       <div class="panel-summary" id="tableViewSummary"></div>
     </div>
     <div class="panel-body">
+      <div class="table-toolbar" style="padding-left:0; padding-right:0;">
+        <button class="clear-btn" id="exportMonthlyBtn" style="margin-top:0;">Export CSV</button>
+      </div>
       <div class="table-scroll">
         <table id="monthTable"><thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">Same Month Last Year</th><th class="num">YoY Δ</th></tr></thead><tbody></tbody></table>
       </div>
@@ -235,7 +238,10 @@
   <div class="table-card">
     <div class="table-toolbar">
       <input type="text" class="search-input" id="searchInput" placeholder="Search company...">
-      <div class="row-count" id="rowCount"></div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div class="row-count" id="rowCount"></div>
+        <button class="clear-btn" id="exportClientsBtn" style="margin-top:0;">Export CSV</button>
+      </div>
     </div>
     <div class="table-scroll">
       <table id="clientTable">
@@ -412,6 +418,8 @@
       state.search = e.target.value.toLowerCase();
       renderAll();
     });
+    document.getElementById("exportClientsBtn").addEventListener("click", exportClientsCsv);
+    document.getElementById("exportMonthlyBtn").addEventListener("click", exportMonthlyCsv);
     document.querySelector("#clientTable tbody").addEventListener("click", function(e){
       var row = e.target.closest("tr.group-row");
       if (!row) return;
@@ -791,6 +799,69 @@
     return String(s).replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
+  }
+
+  function csvCell(v){
+    if (v === null || v === undefined) return "";
+    var s = String(v);
+    if (/[",\r\n]/.test(s)) { s = '"' + s.replace(/"/g, '""') + '"'; }
+    return s;
+  }
+
+  function downloadCsv(filename, rows){
+    var csv = rows.map(function(r){ return r.map(csvCell).join(","); }).join("\r\n");
+    var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function rangeSuffix(){
+    return state.fromMonth + "_to_" + state.toMonth;
+  }
+
+  // Exports the granular per-account rows (not the rolled-up display) -- an export is meant to carry
+  // real underlying detail, so family groups are noted via a column instead of collapsed.
+  function exportClientsCsv(){
+    if (!lastFiltered) return;
+    var rows = [["Company","Family Group","Industry","Account Owner","Revenue (range)","% of Total","Orders (lifetime)","Last Invoice","Matched to Sage"]];
+    lastFiltered.slice().sort(function(a,b){ return b.rangeIncome - a.rangeIncome; }).forEach(function(c){
+      rows.push([
+        c.company,
+        c.familyKey || "",
+        c.industry || "",
+        c.acctOwner || "",
+        c.rangeIncome.toFixed(2),
+        c.pctOfTotal.toFixed(1) + "%",
+        c.orderCount,
+        c.lastInvoiceDate || "",
+        c.matched ? "Yes" : "No"
+      ]);
+    });
+    downloadCsv("embassy-plan-clients_" + rangeSuffix() + ".csv", rows);
+  }
+
+  function exportMonthlyCsv(){
+    var months = monthsInRange();
+    var filteredCompanies = {};
+    (lastFiltered || []).forEach(function(c){ filteredCompanies[c.company] = true; });
+    var rows = [["Month","Revenue","Same Month Last Year","YoY Delta ($)","YoY Delta (%)"]];
+    months.forEach(function(m){
+      var current = 0;
+      DATA.clients.forEach(function(c){ if (filteredCompanies[c.company]) current += (c.monthly[m] || 0); });
+      var pk = priorYearKey(m);
+      var prior = 0;
+      DATA.clients.forEach(function(c){ if (filteredCompanies[c.company]) prior += (c.monthly[pk] || 0); });
+      var deltaDollars = prior > 0 ? (current - prior) : "";
+      var deltaPct = prior > 0 ? ((current - prior) / prior * 100).toFixed(1) + "%" : "";
+      rows.push([monthLabel(m), current.toFixed(2), prior > 0 ? prior.toFixed(2) : "", deltaDollars === "" ? "" : deltaDollars.toFixed(2), deltaPct]);
+    });
+    downloadCsv("embassy-plan-monthly_" + rangeSuffix() + ".csv", rows);
   }
 })();
 </script>
