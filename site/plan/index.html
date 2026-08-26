@@ -280,6 +280,7 @@
             <th data-col="acctRep">Account Rep</th>
             <th data-col="rangeIncome" class="num">Revenue (range)</th>
             <th data-col="pctOfTotal" class="num">% of Total</th>
+            <th class="num">Cumulative</th>
             <th data-col="orderCount" class="num">Orders (lifetime)</th>
             <th data-col="lastInvoiceDate">Last Invoice</th>
             <th data-col="matched">Sage</th>
@@ -872,7 +873,25 @@
     return rows;
   }
 
-  function clientRowHtml(c, isMember, indentPx){
+  // Running sum in whatever order `rows` is already sorted in -- only coherent as a Pareto/"how many
+  // accounts make up X% of revenue" read when sorted by Revenue descending, but well-defined regardless.
+  function computeCumulative(rows, totalRevenue){
+    var running = 0;
+    rows.forEach(function(r){
+      running += r.rangeIncome;
+      r.cumulative = running;
+      r.cumulativePct = pctOf(running, totalRevenue);
+    });
+    return rows;
+  }
+
+  function cumulativeCellHtml(cumulative, cumulativePct, inverse){
+    if (cumulative === undefined) return '<td class="num"><span class="' + (inverse ? "muted-inverse" : "muted") + '">—</span></td>';
+    var sub = '<span class="' + (inverse ? "muted-inverse" : "muted") + '" style="font-size:0.72rem;"> · ' + cumulativePct.toFixed(0) + '%</span>';
+    return '<td class="num">' + fmtMoney(cumulative) + sub + '</td>';
+  }
+
+  function clientRowHtml(c, isMember, indentPx, cumulative, cumulativePct){
     var style = (indentPx !== undefined) ? ' style="padding-left:' + indentPx + 'px;"' : '';
     return "<tr" + (isMember ? " class=\"member-row\"" : "") + ">" +
       "<td class=\"co-name\"" + style + ">" + escapeHtml(c.company) + "</td>" +
@@ -880,13 +899,14 @@
       "<td>" + (c.acctRep ? escapeHtml(c.acctRep) : '<span class="muted">—</span>') + "</td>" +
       "<td class=\"num\">" + fmtMoney(c.rangeIncome) + "</td>" +
       "<td class=\"num\">" + fmtPct(c.pctOfTotal) + "</td>" +
+      cumulativeCellHtml(cumulative, cumulativePct) +
       "<td class=\"num\">" + c.orderCount + "</td>" +
       "<td>" + (c.lastInvoiceDate ? escapeHtml(c.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
       "<td>" + (c.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
       "</tr>";
   }
 
-  function groupRowHtml(g, expanded, indentPx){
+  function groupRowHtml(g, expanded, indentPx, showCumulative){
     var style = (indentPx !== undefined) ? ' style="padding-left:' + indentPx + 'px;"' : '';
     return "<tr class=\"group-row\" data-group-key=\"" + escapeHtml(g.key) + "\">" +
       "<td class=\"co-name\"" + style + "><span class=\"group-toggle\">" + (expanded ? "▾" : "▸") + "</span>" + escapeHtml(g.company) +
@@ -895,6 +915,7 @@
       "<td>" + (g.acctRep ? escapeHtml(g.acctRep) : '<span class="muted">—</span>') + "</td>" +
       "<td class=\"num\">" + fmtMoney(g.rangeIncome) + "</td>" +
       "<td class=\"num\">" + fmtPct(g.pctOfTotal) + "</td>" +
+      cumulativeCellHtml(showCumulative ? g.cumulative : undefined, g.cumulativePct) +
       "<td class=\"num\">" + g.orderCount + "</td>" +
       "<td>" + (g.lastInvoiceDate ? escapeHtml(g.lastInvoiceDate) : '<span class="muted">—</span>') + "</td>" +
       "<td>" + (g.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
@@ -902,10 +923,11 @@
   }
 
   // Renders a company/family row (group or singleton) plus its members if expanded, at the given nesting indent.
-  function companyRowsHtml(g, searching, indentPx, memberIndentPx){
-    if (!g.isGroup) return [clientRowHtml(g.members[0], false, indentPx)];
+  // Cumulative only shown when this row is a genuine top-level entry in the current sequence (showCumulative).
+  function companyRowsHtml(g, searching, indentPx, memberIndentPx, showCumulative){
+    if (!g.isGroup) return [clientRowHtml(g.members[0], false, indentPx, showCumulative ? g.cumulative : undefined, g.cumulativePct)];
     var expanded = state.expandedGroups.has(g.key) || searching;
-    var out = [groupRowHtml(g, expanded, indentPx)];
+    var out = [groupRowHtml(g, expanded, indentPx, showCumulative)];
     if (expanded) g.members.forEach(function(m){ out.push(clientRowHtml(m, true, memberIndentPx)); });
     return out;
   }
@@ -918,6 +940,7 @@
       "<td>" + (ig.acctRep ? escapeHtml(ig.acctRep) : '<span class="muted-inverse">—</span>') + "</td>" +
       "<td class=\"num\">" + fmtMoney(ig.rangeIncome) + "</td>" +
       "<td class=\"num\">" + fmtPct(ig.pctOfTotal) + "</td>" +
+      cumulativeCellHtml(ig.cumulative, ig.cumulativePct, true) +
       "<td class=\"num\">" + ig.orderCount + "</td>" +
       "<td>" + (ig.lastInvoiceDate ? escapeHtml(ig.lastInvoiceDate) : '<span class="muted-inverse">—</span>') + "</td>" +
       "<td>" + (ig.matched ? '<span class="badge matched">Matched</span>' : '<span class="badge unmatched">No match</span>') + "</td>" +
@@ -939,7 +962,7 @@
     var groupCount = 0;
 
     if (state.groupBy === "industry") {
-      var industryGroups = sortRows(buildIndustryGroups(filtered, totalRevenue), col, dir);
+      var industryGroups = computeCumulative(sortRows(buildIndustryGroups(filtered, totalRevenue), col, dir), totalRevenue);
       industryGroups.forEach(function(ig){
         var expanded = state.expandedIndustries.has(ig.key) || searching;
         rowsHtml.push(industryRowHtml(ig, expanded));
@@ -947,14 +970,14 @@
         var companyGroups = sortRows(ig.companyGroups.slice(), col === "industry" ? "rangeIncome" : col, col === "industry" ? "desc" : dir);
         companyGroups.forEach(function(g){
           if (g.isGroup) groupCount++;
-          companyRowsHtml(g, searching, 34, 54).forEach(function(r){ rowsHtml.push(r); });
+          companyRowsHtml(g, searching, 34, 54, false).forEach(function(r){ rowsHtml.push(r); });
         });
       });
     } else {
-      var companyGroups2 = sortRows(buildGroups(filtered, totalRevenue), col, dir);
+      var companyGroups2 = computeCumulative(sortRows(buildGroups(filtered, totalRevenue), col, dir), totalRevenue);
       companyGroups2.forEach(function(g){
         if (g.isGroup) groupCount++;
-        companyRowsHtml(g, searching, undefined, undefined).forEach(function(r){ rowsHtml.push(r); });
+        companyRowsHtml(g, searching, undefined, undefined, true).forEach(function(r){ rowsHtml.push(r); });
       });
     }
 
@@ -999,8 +1022,11 @@
   // real underlying detail, so family groups are noted via a column instead of collapsed.
   function exportClientsCsv(){
     if (!lastFiltered) return;
-    var rows = [["Company","Family Group","Industry","Account Rep","Revenue (range)","% of Total","Orders (lifetime)","Last Invoice","Matched to Sage"]];
+    var rows = [["Company","Family Group","Industry","Account Rep","Revenue (range)","% of Total","Cumulative Total","Cumulative %","Orders (lifetime)","Last Invoice","Matched to Sage"]];
+    var totalRevenue = lastFiltered.reduce(function(s,c){ return s + c.rangeIncome; }, 0);
+    var running = 0;
     lastFiltered.slice().sort(function(a,b){ return b.rangeIncome - a.rangeIncome; }).forEach(function(c){
+      running += c.rangeIncome;
       rows.push([
         c.company,
         c.familyKey || "",
@@ -1008,6 +1034,8 @@
         c.acctRep || "",
         c.rangeIncome.toFixed(2),
         c.pctOfTotal.toFixed(1) + "%",
+        running.toFixed(2),
+        pctOf(running, totalRevenue).toFixed(1) + "%",
         c.orderCount,
         c.lastInvoiceDate || "",
         c.matched ? "Yes" : "No"
