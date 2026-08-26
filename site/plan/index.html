@@ -460,21 +460,19 @@
     return (parseInt(parts[0],10) - 1) + "-" + parts[1];
   }
 
-  // Sum of monthly[priorYearKey(m)] across the given company set, for every month in `months`.
-  // Returns {total, monthsWithBaseline} -- a month only counts toward the baseline if the prior
-  // year actually has revenue (0/missing prior data reads as "no comparison", not "down 100%").
-  function priorYearSum(filteredCompanies, months){
-    var total = 0, monthsWithBaseline = 0;
-    months.forEach(function(m){
-      var pk = priorYearKey(m);
-      var sum = 0;
-      DATA.clients.forEach(function(c){
-        if (!filteredCompanies[c.company]) return;
-        sum += (c.monthly[pk] || 0);
-      });
-      if (sum > 0) { total += sum; monthsWithBaseline++; }
+  // Latest month in the selected range vs. that same month one year earlier (e.g. Aug '26 vs Aug '25) --
+  // mirrors monthToMonthDelta's "last two months" shape, just a year apart instead of a month apart.
+  function yoyLatestMonthDelta(filteredCompanies, months){
+    if (months.length < 1) return null;
+    var lastM = months[months.length - 1];
+    var priorM = priorYearKey(lastM);
+    var lastVal = 0, priorVal = 0;
+    DATA.clients.forEach(function(c){
+      if (!filteredCompanies[c.company]) return;
+      lastVal += (c.monthly[lastM] || 0);
+      priorVal += (c.monthly[priorM] || 0);
     });
-    return { total: total, monthsWithBaseline: monthsWithBaseline };
+    return { lastM: lastM, priorM: priorM, lastVal: lastVal, priorVal: priorVal };
   }
 
   var lastFiltered = null;
@@ -548,20 +546,23 @@
       };
     }
 
-    var yoy = priorYearSum(filteredCompanies, months);
+    var yoy = yoyLatestMonthDelta(filteredCompanies, months);
     var yoyTile;
-    if (yoy.monthsWithBaseline === 0) {
-      yoyTile = { label: "YoY Change", value: "Not enough history", sub: "no matching prior-year data yet" };
+    if (!yoy) {
+      yoyTile = { label: "YoY Change", value: "—", sub: "no months selected" };
+    } else if (yoy.priorVal <= 0) {
+      yoyTile = { label: "YoY Change", value: "No " + monthLabel(yoy.priorM) + " data", sub: monthLabel(yoy.lastM) + " vs " + monthLabel(yoy.priorM) };
     } else {
-      var yoyDelta = totalRevenue - yoy.total;
-      var yoyPct = yoy.total > 0 ? (yoyDelta / yoy.total * 100) : null;
+      var yoyDelta = yoy.lastVal - yoy.priorVal;
+      var yoyPct = (yoyDelta / yoy.priorVal * 100);
       var arrow = yoyDelta >= 0 ? "▲" : "▼";
       var cls = yoyDelta >= 0 ? "yoy-up" : "yoy-down";
-      var pctText = yoyPct === null ? "" : (" (" + (yoyPct >= 0 ? "+" : "") + yoyPct.toFixed(0) + "%)");
-      var coverageNote = yoy.monthsWithBaseline < months.length
-        ? (yoy.monthsWithBaseline + " of " + months.length + " months have a prior-year baseline")
-        : "vs. same months last year";
-      yoyTile = { label: "YoY Change", valueHtml: '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(yoyDelta)) + pctText + '</span>', sub: coverageNote, compact: true };
+      yoyTile = {
+        label: "YoY Change",
+        valueHtml: '<span class="' + cls + '">' + arrow + ' ' + fmtMoney(Math.abs(yoyDelta)) + ' (' + (yoyPct>=0?"+":"") + yoyPct.toFixed(0) + '%)</span>',
+        sub: monthLabel(yoy.lastM) + " vs " + monthLabel(yoy.priorM),
+        compact: true
+      };
     }
 
     var tiles = [
