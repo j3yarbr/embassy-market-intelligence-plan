@@ -129,6 +129,20 @@
   .industry-item{display:flex; align-items:center; gap:8px; font-size:0.84rem; color:var(--navy-deep);}
   .industry-item input{width:15px; height:15px; accent-color:var(--blue); cursor:pointer;}
 
+  .test-mode-banner{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    border-radius:10px; padding:14px 18px; margin-bottom:16px; border:2px solid; transition:background 0.15s, border-color 0.15s;
+  }
+  .test-mode-banner.on{background:var(--live-bg); border-color:var(--live);}
+  .test-mode-banner.off{background:var(--warn-bg); border-color:var(--warn);}
+  .test-mode-toggle{display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:800; font-size:0.95rem;}
+  .test-mode-banner.on .test-mode-toggle{color:var(--live);}
+  .test-mode-banner.off .test-mode-toggle{color:var(--warn);}
+  .test-mode-toggle input{width:20px; height:20px; cursor:pointer;}
+  .test-mode-banner.on .test-mode-toggle input{accent-color:var(--live);}
+  .test-mode-banner.off .test-mode-toggle input{accent-color:var(--warn);}
+  .test-mode-sub{font-size:0.82rem; color:var(--navy-deep);}
+
   .recipient-count{font-size:0.82rem; color:var(--gray-text); margin-top:10px;}
   .recipient-count b{color:var(--navy-deep);}
 
@@ -146,6 +160,14 @@
 </header>
 
 <div class="wrap">
+
+  <div class="test-mode-banner" id="testModeBanner">
+    <label class="test-mode-toggle">
+      <input type="checkbox" id="testModeCheckbox" checked>
+      <span id="testModeLabel"></span>
+    </label>
+    <span class="test-mode-sub" id="testModeSub"></span>
+  </div>
 
   <div class="layout">
     <div>
@@ -233,7 +255,8 @@
     industries: new Set(),
     industryPanelOpen: false,
     flyerBase64: null,
-    flyerFileName: null
+    flyerFileName: null,
+    testMode: true
   };
 
   Promise.all([
@@ -257,7 +280,31 @@
     document.getElementById("dataGeneratedAt").textContent = "as of " + DATA.meta.generatedAt;
     document.getElementById("footerMeta").textContent =
       DATA.meta.totalClients + " marketable clients across " + DATA.industries.length + " industries, from the active Sage client export.";
+    renderTestModeBanner();
     updateRecipientCount();
+  }
+
+  // The only two places allowed to touch real ClientRpt-sourced emails are matchingClients() and the
+  // test-mode email list below -- every other function goes through one of these, never DATA.clients directly,
+  // so test mode being on is a structural guarantee, not a "remember to check" convention.
+  function testModeEmails(){
+    return SENDERS.senders.map(function(s){ return s.email; });
+  }
+
+  function renderTestModeBanner(){
+    var banner = document.getElementById("testModeBanner");
+    var label = document.getElementById("testModeLabel");
+    var sub = document.getElementById("testModeSub");
+    document.getElementById("testModeCheckbox").checked = state.testMode;
+    banner.classList.toggle("on", state.testMode);
+    banner.classList.toggle("off", !state.testMode);
+    if (state.testMode) {
+      label.textContent = "🔒 Test Mode: ON";
+      sub.textContent = "Recipients are limited to your " + testModeEmails().length + " internal team addresses, regardless of industry selection. Real client emails are never touched.";
+    } else {
+      label.textContent = "⚠️ LIVE MODE";
+      sub.textContent = "Launching will BCC real client contacts from the Sage export. Turn Test Mode back on unless you mean to build a real campaign.";
+    }
   }
 
   function buildSenderTone(){
@@ -300,21 +347,31 @@
     return opt ? opt.getAttribute("data-name") : "";
   }
 
+  // Real ClientRpt-sourced emails ONLY ever come from here, and only when test mode is off.
   function matchingClients(){
+    if (state.testMode) return [];
     if (state.industries.size === 0) return [];
     return DATA.clients.filter(function(c){ return state.industries.has(c.industry); });
+  }
+
+  function recipientEmails(){
+    if (state.testMode) return testModeEmails();
+    var uniqueEmails = {};
+    matchingClients().forEach(function(c){ uniqueEmails[c.email] = true; });
+    return Object.keys(uniqueEmails);
   }
 
   function updateRecipientCount(){
     var n = state.industries.size;
     document.getElementById("industryPanelSummary").textContent = n === 0 ? "None selected" : (n + " selected");
-    var recipients = matchingClients();
-    var uniqueEmails = {};
-    recipients.forEach(function(c){ uniqueEmails[c.email] = true; });
-    var count = Object.keys(uniqueEmails).length;
-    document.getElementById("recipientCount").innerHTML =
-      n === 0 ? "Select at least one industry to see recipient count."
-               : "<b>" + count.toLocaleString() + "</b> matching contact" + (count===1?"":"s") + " will be BCC'd.";
+    var count = recipientEmails().length;
+    if (state.testMode) {
+      document.getElementById("recipientCount").innerHTML = "<b>" + count + "</b> internal test recipient" + (count===1?"":"s") + " will be BCC'd (Test Mode is on).";
+    } else {
+      document.getElementById("recipientCount").innerHTML =
+        n === 0 ? "Select at least one industry to see recipient count."
+                 : "<b>" + count.toLocaleString() + "</b> matching contact" + (count===1?"":"s") + " will be BCC'd.";
+    }
     updateLaunchState();
   }
 
@@ -324,6 +381,11 @@
   }
 
   function bindEvents(){
+    document.getElementById("testModeCheckbox").addEventListener("change", function(e){
+      state.testMode = e.target.checked;
+      renderTestModeBanner();
+      updateRecipientCount();
+    });
     document.getElementById("industryPanelHead").addEventListener("click", function(){
       state.industryPanelOpen = !state.industryPanelOpen;
       document.getElementById("industryPanel").classList.toggle("open", state.industryPanelOpen);
@@ -523,17 +585,14 @@
     if (!state.flyerBase64) { alert("Please upload a flyer PDF first."); return; }
     if (state.industries.size === 0) { alert("Please select at least one target industry."); return; }
 
-    var recipients = matchingClients();
-    var uniqueEmails = {};
-    recipients.forEach(function(c){ uniqueEmails[c.email] = true; });
-    var emails = Object.keys(uniqueEmails);
+    var emails = recipientEmails();
     if (emails.length === 0) { alert("No matching approved contacts found for the selected industries."); return; }
 
     var senderSel = document.getElementById("senderSelect");
     var fromEmail = senderSel.value;
     var fromName = currentSenderName();
     var firstIndustry = Array.from(state.industries)[0];
-    var subject = "Embassy Update: " + firstIndustry;
+    var subject = (state.testMode ? "[TEST] " : "") + "Embassy Update: " + firstIndustry;
     var body = document.getElementById("bodyPreview").value;
     var parts = body.split("[FLYER ATTACHED HERE]");
     var link = document.getElementById("linkInput").value.trim();
@@ -568,7 +627,8 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    alert("Campaign file downloaded (" + emails.length + " recipients). Open it to review in Outlook, then hit Send.");
+    var modeNote = state.testMode ? " [TEST MODE — internal recipients only]" : "";
+    alert("Campaign file downloaded (" + emails.length + " recipients)" + modeNote + ". Open it to review in Outlook, then hit Send.");
   }
 })();
 </script>
