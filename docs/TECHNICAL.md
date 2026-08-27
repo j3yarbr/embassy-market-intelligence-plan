@@ -1,6 +1,6 @@
 # Technical Information / Architecture / Troubleshooting
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-27
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Cross-cutting technical reference — deploy mechanics, known gotchas, and things that will burn real time if you don't know them going in.
 
@@ -15,15 +15,50 @@ Part of the Embassy Market Intelligence Suite (see `README.md`). Cross-cutting t
 
 ```
 site/
-  index.html         ← Suite Landing Page (hub), also the repo's README-equivalent front door
-  favicon.png         ← Embassy compass mark, cropped from the full logo
-  version.json         ← gitignored, regenerated fresh by the workflow on every deploy
-  focus/                ← Focus map app (Folium-generated index.html, data.json, cluster_callback.js)
-  inspire/              ← Inspire prototype (hand-written index.html, data.json)
-  promote/  plan/        ← don't exist yet, added when each module ships
+  index.html          ← Suite Landing Page (hub)
+  favicon.png          ← Embassy compass mark, cropped from the full logo, 512x512
+  favicon.ico           ← same mark wrapped in an ICO container (added 2026-08-27, see below)
+  manifest.json          ← web manifest for the landing page's own icon/shortcut behavior
+  version.json            ← gitignored, regenerated fresh by the workflow on every deploy
+  focus/                   ← Folium-generated index.html, data.json, cluster_callback.js, manifest.json
+  inspire/                  ← hand-written index.html, data.json, manifest.json
+  plan/                      ← index.html, data.json, manifest.json (see PLAN.md for the data pipeline)
+  promote/                    ← index.html, data.json, senders.json, manifest.json (see PROMOTE.md)
 ```
 
-A `site/core/` folder (shared nav/branding/CSS) is reserved for once 2+ modules justify extracting common code — not worth it for one module.
+Every module folder has its own `manifest.json` (name/short_name/icons, pointing back at the shared `../favicon.png`) — needed per-page, not shared, since each is really its own app-like page in the suite.
+
+A `site/core/` folder (shared nav/branding/CSS) is reserved for once it's clearly worth extracting common code across 5 modules of mostly-duplicated header/palette/banner boilerplate — not done yet, flagged in `BACKLOG.md`.
+
+## Real favicon.ico / apple-touch-icon / manifest.json (added 2026-08-27)
+
+A plain `<link rel="icon" type="image/png">` is enough for a browser tab, but **not** enough for a Windows desktop shortcut or an iPad home-screen icon — both fell back to a generic letter avatar until this was added. Every page now ships four lines in `<head>`:
+
+```html
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="shortcut icon" type="image/x-icon" href="../favicon.ico">
+<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#152840">
+```
+
+`favicon.ico` was built by wrapping the existing 512x512 PNG in a minimal ICO container (a valid, widely-supported technique — modern Windows/browsers accept a single embedded PNG marked at the "256" size slot even though the real image is larger). No image-editing tool needed; built directly via a `System.IO.BinaryWriter` in PowerShell, not ImageMagick or similar (none installed on this machine).
+
+**Existing shortcuts/home-screen icons made before this fix won't update on their own** — the icon gets baked into the shortcut (Windows `.lnk`) or the iOS home-screen entry at creation time. Delete and re-create to pick up the new icon; a source-file change alone won't retroactively fix one already made.
+
+**Focus-specific**: these four lines get wiped on every Folium rebuild along with the favicon link, banner, and back button — see `FOCUS.md`'s known-gap section.
+
+## Data export pipeline (Plan, Promote — the pattern to follow for future modules)
+
+There is **no working Python in this environment** — `python`/`python3` on PATH resolve to non-functional Windows Store stub aliases (confirmed directly: they print an install-from-Store message and exit, they don't run). Anaconda's install may still work at its full path (`C:\Users\Owner\anaconda3\python.exe`, referenced in Focus's build section) but wasn't used for Plan/Promote's data pipelines — instead:
+
+1. **Excel COM automation** (`New-Object -ComObject Excel.Application` in PowerShell) opens the source `.xlsx` and saves each sheet as CSV (`$ws.SaveAs($path, 6)`), invisibly (`$excel.Visible = $false`). Reliable, no external dependency beyond Excel itself being installed (it is, on this machine).
+2. A PowerShell build script (`build_plan_data.ps1`, `build_promote_data.ps1`) parses the CSV with `ConvertFrom-Csv` and builds the final JSON with `ConvertTo-Json`.
+3. The output gets copied into the relevant `site/<module>/data.json` and committed.
+
+**Real gotcha found building this**: a couple of Sage export rows have embedded newlines or stray quote characters inside long free-text note fields (`GeneralNotes`, `ContactNotes`), which shift the CSV column alignment for those specific rows — garbage values ("TRUE", stray sentence fragments) can land in unrelated columns like `AcctReps`. Affects a tiny fraction of rows (2 of 1,948 in the run that found this) but is worth a sanity check (e.g. filter out suspiciously long or boolean-looking values) rather than assuming every row parsed cleanly. See `Clean-AcctRep` in `build_plan_data.ps1` for the pattern.
+
+This pipeline is **not automated or live** — rerun by hand whenever Matt pulls a fresh export. Each build script currently expects the source CSVs already exported to a scratch folder (update the `$scratch` variable at the top before rerunning) — not yet a single one-command pipeline from `.xlsx` to deployed `data.json`.
 
 ## Auto-update banner mechanism
 
@@ -39,13 +74,27 @@ If a flex-wrap row (e.g. Inspire's chip rows) sits inside a CSS Grid column, the
 
 ## Known gotcha: never test via `file://`
 
-Any page here that `fetch()`s a JSON file (Focus's `data.json`, Inspire's `data.json`) will silently fail under browser CORS restrictions if opened by double-clicking the HTML file directly (`file://` protocol) — it looks exactly like broken data, but isn't a code bug. **Always test via a served URL**: a local static server for quick checks, or the live Pages URL once deployed. This was the root cause behind weeks of Focus appearing broken before it was diagnosed — don't repeat it for any future module.
+Any page here that `fetch()`s a JSON file (every module's `data.json`) will silently fail under browser CORS restrictions if opened by double-clicking the HTML file directly (`file://` protocol) — it looks exactly like broken data, but isn't a code bug. **Always test via a served URL**: a local static server for quick checks, or the live Pages URL once deployed. This was the root cause behind weeks of Focus appearing broken before it was diagnosed — don't repeat it for any future module.
 
-Local test server (Anaconda's Python, since the bare `python` command on this machine is a non-functional Windows Store shim):
+**Local test server**: given no reliable Python on this machine (see the data-pipeline section above), the proven approach this session was a small PowerShell static file server using `System.Net.HttpListener` (no external dependency at all), wired up via `.claude/launch.json` so it launches through the standard preview tooling:
+
+```json
+{
+  "version": "0.0.1",
+  "configurations": [{
+    "name": "plan-static-server",
+    "runtimeExecutable": "powershell.exe",
+    "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "<path to a static_server.ps1 script>"],
+    "port": 8899
+  }]
+}
 ```
-"C:\Users\Owner\anaconda3\python.exe" -m http.server 8000
-```
-Run from inside `site/` (or the relevant subfolder) so relative paths resolve the same way they will live.
+
+The script itself just loops on `HttpListener.GetContext()`, maps the request path to a file under `site/`, and writes the bytes back with a correct `Content-Type` by extension. Anaconda's Python (`C:\Users\Owner\anaconda3\python.exe -m http.server 8000`, run from inside `site/`) is a working alternative if available. Either way: run from a location so relative paths resolve the same way they will live.
+
+## Known gotcha: GitHub Pages deploy/CDN delay
+
+Deploys are usually fast (~15-60 seconds from push to live, confirmed by polling `version.json`), but GitHub Pages' CDN caches `Cache-Control: max-age=600` — up to 10 minutes of staleness is possible, and a browser tab left open from before a push won't refresh on its own even after the CDN catches up (it just shows whatever it last rendered until reloaded). If something looks stale, check the real timestamp: `curl https://j3yarbr.github.io/embassy-market-intelligence-plan/version.json` shows the actually-deployed commit SHA — don't assume a multi-hour staleness report is a deploy problem before checking this; it's much more often a browser tab that was never actually reloaded (confirmed this exact scenario 2026-08-26 — a report of "hours-old" content turned out to be a backgrounded tab, not a slow deploy).
 
 ## Google Drive migration
 
