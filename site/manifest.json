@@ -1,0 +1,11 @@
+{
+  "name": "Embassy Market Intelligence",
+  "short_name": "Embassy",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#152840",
+  "icons": [
+    { "src": "favicon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
