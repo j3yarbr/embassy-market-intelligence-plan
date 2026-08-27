@@ -1,6 +1,6 @@
 # Focus
 
-**Status:** ✅ Live · **Last updated:** 2026-08-21
+**Status:** ✅ Live · **Last updated:** 2026-08-27
 **Live URL:** https://j3yarbr.github.io/embassy-market-intelligence-plan/focus/
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Focus is the Prospect Finder Map — it isolates local organizations across the four-state territory ready for custom branded apparel and hardgoods, so a rep can see where the real opportunity is instead of driving blind or cold-calling waste.
@@ -40,14 +40,15 @@ Run from inside `Market Gap Map Application\`. Takes ~10-14 minutes (Anaconda's 
 
 Clear `dist/`, `build/`, and the `.spec` file before a rebuild (Matt's own habit).
 
-## Known gap: favicon and auto-update banner don't survive a rebuild
+## Known gap: favicon, icons, and auto-update banner don't survive a rebuild
 
-`market_intelligence_engine.py` doesn't write the HTML `<head>`/`<body>` directly — Folium generates it from its own template. That means the deployed `site/focus/index.html`'s manually-added favicon `<link>` tag and auto-update banner `<script>` block (see `TECHNICAL.md`) get wiped on every rebuild. Re-add both by hand after each redeploy until the Python script gets a post-processing step to reinject them.
+`market_intelligence_engine.py` doesn't write the HTML `<head>`/`<body>` directly — Folium generates it from its own template. That means the deployed `site/focus/index.html`'s manually-added favicon `<link>` tag, the `favicon.ico`/`apple-touch-icon`/`manifest.json` lines (added 2026-08-27 for the desktop/iPad home-screen icon fix — see `TECHNICAL.md`), the auto-update banner `<script>` block, and the floating "← Suite" back button **all get wiped on every rebuild**. Re-add all of these by hand after each redeploy until the Python script gets a post-processing step to reinject them (tracked in `BACKLOG.md`, not built yet).
 
 ## Open backlog items
 
-- No real Industry field for clients — the Sage geocoding export has no Industry column, so every client currently buckets to "Other." Needs either a new field on the export or a second file joined by company name.
-- Sanity-check the OSM-tag → Sage-category mapping against real data distribution now that prospect volume is stable.
+- **Client Industry data now exists but isn't wired in, on hold.** `_Active Client List with Notes\ClientRpt.xlsx` has a real Industry value for all 1,935 active clients (see `PLAN.md`/`PROMOTE.md` — this is the same enriched export both of those now use). Focus's own map still reads a separate geocoded export with no Industry column, so every client currently buckets to "Other" here specifically. Matt's call: wiring this in is a real rebuild, and the long-term relational-database direction (see `README.md`) could change the right approach entirely — wait for that decision rather than doing throwaway work.
+- Sanity-check the OSM-tag → Sage-category mapping against real data distribution now that prospect volume is stable (26,859 prospects).
+- Add "check all" / "uncheck all" to the category filter panel (47 categories, currently only one-by-one).
 - Longer-term: Sage CRM adoption as the single source of truth (Matt's broader initiative, separate from the map itself).
 
 See `BACKLOG.md` in the Drive source folder for current status.
