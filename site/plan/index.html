@@ -195,6 +195,17 @@
   .data-note b{color:var(--warn);}
 
   .footer-meta{font-size:0.72rem; color:var(--gray-text); text-align:center; padding:20px 0 40px;}
+
+  .year-select-row{
+    display:flex; align-items:center; gap:10px; background:var(--white); border:1px solid var(--gray-line);
+    border-radius:10px; padding:10px 16px; margin-bottom:16px;
+  }
+  .year-select-row label{font-size:0.78rem; font-weight:700; color:var(--gray-text); text-transform:uppercase; letter-spacing:0.03em; margin:0;}
+  .year-select-row select{
+    font-family:inherit; font-size:0.9rem; font-weight:700; padding:6px 10px; border-radius:8px;
+    border:1.5px solid var(--gray-line); background:var(--gray-bg); color:var(--navy-deep); cursor:pointer;
+  }
+  .year-select-row select:focus{outline:none; border-color:var(--blue); background:var(--white);}
 </style>
 </head>
 <body>
@@ -208,6 +219,11 @@
 <div class="wrap">
 
   <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="year-select-row">
+    <label for="yearSelect">Year</label>
+    <select id="yearSelect"></select>
+  </div>
 
   <div class="panel" id="filterPanel">
     <div class="panel-head" id="filterPanelHead">
@@ -361,6 +377,7 @@
 
     buildFilterChips();
     buildMonthSelects();
+    buildYearSelect();
     bindEvents();
     renderUnmatchedNote();
     renderAll();
@@ -448,13 +465,58 @@
     fromSel.addEventListener("change", function(){
       state.fromMonth = fromSel.value;
       if (state.fromMonth > state.toMonth) { state.toMonth = state.fromMonth; toSel.value = state.toMonth; }
+      syncYearSelect();
       renderAll();
     });
     toSel.addEventListener("change", function(){
       state.toMonth = toSel.value;
       if (state.toMonth < state.fromMonth) { state.fromMonth = state.toMonth; fromSel.value = state.fromMonth; }
+      syncYearSelect();
       renderAll();
     });
+  }
+
+  // All distinct years present in the data, e.g. ["2025","2026"].
+  function yearsInData(){
+    var seen = {}, out = [];
+    DATA.meta.months.forEach(function(m){
+      var y = m.split("-")[0];
+      if (!seen[y]) { seen[y] = true; out.push(y); }
+    });
+    return out;
+  }
+
+  // First/last available month within a given year (a year can be partial -- e.g. the ownership-cutoff
+  // year only has data from April on, and the current year only runs through the latest export).
+  function yearBounds(year){
+    var inYear = DATA.meta.months.filter(function(m){ return m.indexOf(year + "-") === 0; });
+    return { from: inYear[0], to: inYear[inYear.length - 1] };
+  }
+
+  function buildYearSelect(){
+    var sel = document.getElementById("yearSelect");
+    sel.innerHTML = "";
+    var customOpt = document.createElement("option");
+    customOpt.value = ""; customOpt.textContent = "Custom range";
+    sel.appendChild(customOpt);
+    yearsInData().forEach(function(y){
+      var o = document.createElement("option"); o.value = y; o.textContent = y;
+      sel.appendChild(o);
+    });
+    syncYearSelect();
+  }
+
+  // Reflects the current fromMonth/toMonth back onto the Year dropdown -- shows the matching year only
+  // when the range exactly equals that year's full available bounds, "Custom range" otherwise (e.g.
+  // after a manual month-select tweak or "Clear all filters").
+  function syncYearSelect(){
+    var sel = document.getElementById("yearSelect");
+    if (!sel) return;
+    var match = yearsInData().find(function(y){
+      var b = yearBounds(y);
+      return b.from === state.fromMonth && b.to === state.toMonth;
+    });
+    sel.value = match || "";
   }
 
   function bindEvents(){
@@ -487,6 +549,17 @@
       document.getElementById("fromMonth").value = state.fromMonth;
       document.getElementById("toMonth").value = state.toMonth;
       document.querySelectorAll("#industryChips .chip, #repChips .chip").forEach(function(c){ c.classList.remove("selected"); });
+      syncYearSelect();
+      renderAll();
+    });
+    document.getElementById("yearSelect").addEventListener("change", function(e){
+      var year = e.target.value;
+      if (!year) return; // "Custom range" chosen -- leave fromMonth/toMonth as they are
+      var b = yearBounds(year);
+      state.fromMonth = b.from;
+      state.toMonth = b.to;
+      document.getElementById("fromMonth").value = state.fromMonth;
+      document.getElementById("toMonth").value = state.toMonth;
       renderAll();
     });
     document.getElementById("searchInput").addEventListener("input", function(e){
