@@ -1442,17 +1442,37 @@
         setUpdateStatus("Recomputing…");
         var newInvoicesByCustomer = results[0];
         var newIncomeByCustomer = results[1];
-        runRecompute(newInvoicesByCustomer, newIncomeByCustomer);
+        runRecompute(newInvoicesByCustomer, newIncomeByCustomer, !!txFile, !!incomeFile);
       })
       .catch(function(err){
         setUpdateStatus("Error: " + err.message);
       });
   }
 
-  function runRecompute(newInvoicesByCustomer, newIncomeByCustomer){
+  function fmtDateShort(d){
+    var names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return names[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+  }
+
+  function runRecompute(newInvoicesByCustomer, newIncomeByCustomer, hasTxFile, hasIncomeFile){
     var mode = state.updateMode;
     var existingByCompany = {};
     DATA.clients.forEach(function(c){ existingByCompany[c.company] = c; });
+
+    // Raw stats on the uploaded Transaction List itself, independent of matching/dedup -- lets the
+    // summary confirm "this upload covers the dates I expected" before trusting anything downstream.
+    var newInvoiceRowCount = 0, newInvoiceMinDate = null, newInvoiceMaxDate = null, newInvoicesBeforeCutoff = 0;
+    if (newInvoicesByCustomer) {
+      Object.keys(newInvoicesByCustomer).forEach(function(company){
+        newInvoicesByCustomer[company].forEach(function(inv){
+          newInvoiceRowCount++;
+          if (!newInvoiceMinDate || inv.date < newInvoiceMinDate) newInvoiceMinDate = inv.date;
+          if (!newInvoiceMaxDate || inv.date > newInvoiceMaxDate) newInvoiceMaxDate = inv.date;
+          if (inv.date < OWNERSHIP_CUTOFF) newInvoicesBeforeCutoff++;
+        });
+      });
+    }
+    var incomeSummaryCustomerCount = newIncomeByCustomer ? Object.keys(newIncomeByCustomer).length : 0;
 
     // Existing post-cutoff invoices grouped by company, as {date:Date, amount, num} -- only relevant
     // for append mode, where they form the base that new invoices merge into.
@@ -1468,7 +1488,12 @@
     var newInvoiceCompanies = newInvoicesByCustomer ? Object.keys(newInvoicesByCustomer) : [];
     var allCompanies = {};
     if (mode === "overwrite") {
+      // Include newInvoiceCompanies too (not just touchedCompanies) so a company with transaction rows
+      // but no matching Income Summary row still gets evaluated -- it won't be kept (overwrite mode only
+      // keeps touched companies), but it needs to hit the "ignored, no income match" counter below instead
+      // of silently vanishing.
       touchedCompanies.forEach(function(c){ allCompanies[c] = true; });
+      newInvoiceCompanies.forEach(function(c){ allCompanies[c] = true; });
     } else {
       Object.keys(existingByCompany).forEach(function(c){ allCompanies[c] = true; });
       touchedCompanies.forEach(function(c){ allCompanies[c] = true; });
@@ -1477,7 +1502,7 @@
     var companyList = Object.keys(allCompanies);
 
     var newInvoicesAdded = 0, newInvoicesSkippedDup = 0, invoicesIgnoredNoIncome = 0, customersUpdated = 0;
-    var clientsOut = [], unmatched = [], invoicesFlatOut = [], allMonths = {};
+    var clientsOut = [], unmatched = [], invoicesFlatOut = [], allMonths = {}, touchedMonths = {}, newCustomerNames = [];
     var oldTotal = 0, newTotal = 0;
 
     companyList.forEach(function(company){
@@ -1486,7 +1511,9 @@
       var willUpdate = mode === "overwrite" ? touchedCompanies.indexOf(company) !== -1 : (newIncomeByCustomer && newIncomeByCustomer[company]);
 
       if (!willUpdate) {
-        // Untouched by this upload -- carry the existing client forward exactly as-is.
+        // Untouched by this upload -- carry the existing client forward exactly as-is. A company can
+        // have new invoice rows in the upload but still land here (e.g. no matching Income Summary row) --
+        // those rows need to show up as "ignored" regardless of whether the company was already known.
         if (existing) {
           clientsOut.push(existing);
           newTotal += existing.totalIncome;
@@ -1495,12 +1522,14 @@
           (existingInvoicesByCompany[company] || []).forEach(function(inv){
             invoicesFlatOut.push({ company: company, num: inv.num, date: toDateStr(inv.date), amount: inv.amount });
           });
-        } else if (newInvoiceCompanies.indexOf(company) !== -1) {
+        }
+        if (newInvoiceCompanies.indexOf(company) !== -1) {
           invoicesIgnoredNoIncome += (newInvoicesByCustomer[company] || []).length;
         }
         return;
       }
 
+      if (!existing) newCustomerNames.push(company);
       customersUpdated++;
       // Merge invoices: existing post-cutoff (append mode only) + new ones, deduped by invoice number.
       var mergedInvoices = mode === "append" ? (existingInvoicesByCompany[company] || []).slice() : [];
@@ -1511,6 +1540,7 @@
         if (inv.num) seenNums[inv.num] = true;
         mergedInvoices.push(inv);
         newInvoicesAdded++;
+        if (inv.date >= OWNERSHIP_CUTOFF) touchedMonths[toMonthKey(inv.date)] = true;
       });
 
       var rawIncome = newIncomeByCustomer[company].income;
@@ -1561,13 +1591,46 @@
 
     pendingUpdate = { dataJson: JSON.stringify(out), invoicesJson: JSON.stringify(invoicesFlatOut) };
 
-    var noteParts = [];
-    noteParts.push(customersUpdated + " customer" + (customersUpdated===1?"":"s") + " updated");
-    if (state.updateMode === "append") noteParts.push(newInvoicesAdded + " new invoice" + (newInvoicesAdded===1?"":"s") + " added, " + newInvoicesSkippedDup + " already present (skipped)");
-    noteParts.push("total revenue: " + fmtMoney(oldTotal) + " → " + fmtMoney(newTotal));
-    if (invoicesIgnoredNoIncome > 0) noteParts.push(invoicesIgnoredNoIncome + " invoice(s) ignored for customers not in the uploaded Income Summary");
+    var delta = newTotal - oldTotal;
+    var deltaStr = (delta >= 0 ? "+" : "-") + fmtMoney(Math.abs(delta));
+    var headline = "<b>" + customersUpdated + " customer" + (customersUpdated===1?"":"s") + " updated</b>" +
+      (newCustomerNames.length ? " (" + newCustomerNames.length + " new)" : "") +
+      " &nbsp;·&nbsp; " + fmtMoney(oldTotal) + " → " + fmtMoney(newTotal) + " (" + deltaStr + ")";
 
-    document.getElementById("updatePreviewNote").innerHTML = noteParts.join("<br>");
+    var items = [];
+    if (hasTxFile) {
+      items.push("Transaction List: " + newInvoiceRowCount.toLocaleString() + " invoice row" + (newInvoiceRowCount===1?"":"s") + " read" +
+        (newInvoiceMinDate ? ", dated " + fmtDateShort(newInvoiceMinDate) + " – " + fmtDateShort(newInvoiceMaxDate) : ""));
+    } else {
+      items.push("No Transaction List uploaded this run — invoice detail unchanged.");
+    }
+    if (hasIncomeFile) {
+      items.push("Income Summary: " + incomeSummaryCustomerCount.toLocaleString() + " customer" + (incomeSummaryCustomerCount===1?"":"s") + " found");
+    } else {
+      items.push("No Income Summary uploaded this run — revenue totals unchanged.");
+    }
+    if (newCustomerNames.length) {
+      items.push("New customer" + (newCustomerNames.length===1?"":"s") + " (not seen before): " + newCustomerNames.slice().sort().join(", "));
+    }
+    if (state.updateMode === "append") {
+      items.push(newInvoicesAdded.toLocaleString() + " new invoice" + (newInvoicesAdded===1?"":"s") + " added, " + newInvoicesSkippedDup.toLocaleString() + " already present (skipped as duplicate)");
+    }
+    var touchedMonthsSorted = Object.keys(touchedMonths).sort();
+    if (touchedMonthsSorted.length) {
+      items.push("Month" + (touchedMonthsSorted.length===1?"":"s") + " affected: " + touchedMonthsSorted.map(monthLabel).join(", "));
+    }
+    if (invoicesIgnoredNoIncome > 0) {
+      items.push("⚠ " + invoicesIgnoredNoIncome.toLocaleString() + " invoice row(s) ignored — customer not present in the uploaded Income Summary");
+    }
+    if (newInvoicesBeforeCutoff > 0) {
+      items.push("ℹ " + newInvoicesBeforeCutoff.toLocaleString() + " new invoice row(s) dated before the Apr 1, 2025 ownership cutoff — used for the tax-rate calc but excluded from revenue");
+    }
+    if (hasTxFile && !hasIncomeFile && newInvoiceRowCount > 0) {
+      items.push("⚠ Upload the Income Summary too — without it, new invoice rows can't be matched to a revenue total and are ignored.");
+    }
+
+    document.getElementById("updatePreviewNote").innerHTML =
+      headline + '<ul style="margin:8px 0 0 0;padding-left:18px;">' + items.map(function(i){ return "<li>" + i + "</li>"; }).join("") + "</ul>";
     document.getElementById("updatePreview").style.display = "block";
     setUpdateStatus("");
   }

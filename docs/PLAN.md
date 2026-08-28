@@ -37,7 +37,25 @@ Collapsible panel, default closed. Upload a Transaction List by Customer + Incom
 - **Overwrite mode**: full recompute using only the uploaded files. Sage-derived fields (industry, acctRep, etc.) for companies already known are carried forward from the currently-loaded `data.json` (Matt isn't re-uploading a fresh Sage export in this flow) — a genuinely new company gets `matched: false`, same as the existing unmatched-customer pattern.
 - **Append mode**: merges new invoices into the existing dataset (lazy-loaded from `invoices.json`), **deduped by QuickBooks invoice number** so a re-uploaded wide-date-range export doesn't double-count revenue for months already present. Only customers present in the newly uploaded Income Summary get recomputed; everyone else carries forward unchanged. Note: the tax-correction ratio in append mode is computed from available post-cutoff invoices only (not true lifetime gross, since `invoices.json` only ever stores post-cutoff rows) — a reasonable approximation, not identical to a from-scratch PowerShell rebuild, since the sales-tax rate doesn't meaningfully vary by window.
 
-**This doesn't write anywhere by itself** — GitHub Pages has no backend. Processing produces a preview (customers updated, invoices added/skipped-as-duplicate, old vs. new total) and two downloadable files (`data.json`, `invoices.json`) that still need to come back for a final commit, same handoff as every other data refresh in this suite. A fully-automatic version (committing straight to GitHub from the browser) was considered and explicitly not built — it would require storing a GitHub write-credential somewhere the page can use it, the same category of tradeoff as the paused Firebase/Supabase decision. See `BACKLOG.md`'s consolidated API section.
+**Recommended mode for a routine weekly drop:** Append. See "Weekly `_Rolling Financials` workflow" below.
+
+**This doesn't write anywhere by itself** — GitHub Pages has no backend. Processing produces a preview and two downloadable files (`data.json`, `invoices.json`) that still need to come back for a final commit, same handoff as every other data refresh in this suite. A fully-automatic version (committing straight to GitHub from the browser) was considered and explicitly not built — it would require storing a GitHub write-credential somewhere the page can use it, the same category of tradeoff as the paused Firebase/Supabase decision. See `BACKLOG.md`'s consolidated API section.
+
+**Post-upload summary** (added 2026-08-28, in response to Matt testing the panel and asking "did this go in clean"): rather than one line, the preview now reads as a checklist —
+- Headline: customers updated (and how many are genuinely new companies never seen before), old total → new total with the dollar delta.
+- Transaction List row count read, and the min–max date span actually found in the upload (the fastest way to eyeball "is this the file I think it is").
+- Income Summary customer count found.
+- New customer names, listed by name (they'll show `matched: false`/blank Industry until a fresh Sage export catches them up).
+- New invoices added vs. already-present-and-skipped (append mode).
+- Months actually affected — derived from the dates of the genuinely new, non-duplicate, post-cutoff invoice rows only, **not** every month a touched customer has ever ordered in (append mode recomputes a touched customer's full monthly breakdown, which would otherwise make this line list years of history on every routine upload and defeat the point).
+- ⚠ warnings: invoice rows with no matching Income Summary row (silently would've been dropped otherwise — fires in both modes), and a nudge if only one of the two files was uploaded.
+- ℹ note: how many new invoice rows fell before the Apr 1, 2025 ownership cutoff (counted toward the tax-rate calc, excluded from revenue — otherwise looks like "why didn't my total move").
+
+## Weekly `_Rolling Financials` workflow
+
+Matt's real cadence: a QuickBooks report is scheduled to drop into a Google Drive folder called `_Rolling Financials` every Monday — not a one-off manual export. This is the intended steady-state use of the Update Data panel, and **Append is the right mode for it**: each week's file only needs to contribute whatever invoices are genuinely new since last Monday, and invoice-number dedup means even a wide/overlapping date range in the report can't double-count. Overwrite exists for the rarer case of a full reset (first load, or recovering from a bad append) — not the weekly habit.
+
+Still manual today: Matt (or whoever's covering) has to open Plan, upload the two files from that Drive folder, download the two output files, and hand them back for a commit. A same-day session raised a more automatic alternative worth real consideration later — Claude Code watching the `_Rolling Financials` folder directly and running the existing PowerShell pipeline + git commit itself when a new file lands, using authority already granted this session (Drive read access, git push authority) rather than a browser-stored GitHub credential. Not built; a real design conversation (would need to confirm each week's report is a fresh full pull vs. an incremental window, and how to handle a week with no report) before committing to it. See `BACKLOG.md`.
 
 ## Default view: current fiscal year, not the full data span
 
