@@ -263,25 +263,17 @@
     </div>
     <div class="panel-body">
       <div class="section-note" style="margin-top:10px;">
-        Parsed entirely in your browser — the files never leave your machine. This prepares an updated
+        Parsed entirely in your browser — the file never leaves your machine. This prepares an updated
         data file for you to send back for a final deploy, same as every other data refresh so far.
+        One file, one report: <b>Sales by Customer Detail</b>, run for <b>All Dates</b> — the same report
+        already scheduled into your <code>_Rolling Financials</code> Drive folder every Monday. Since that
+        report is a full history each time, every upload here is a full rebuild, not an incremental add.
       </div>
       <div class="filter-group" style="margin-top:16px;">
-        <div class="filter-group-label">Update Mode</div>
-        <div class="chip-row" id="updateModeToggle">
-          <div class="chip selected" data-update-mode="append">Append to existing data</div>
-          <div class="chip" data-update-mode="overwrite">Overwrite completely</div>
-        </div>
+        <div class="filter-group-label">Sales by Customer Detail — All Dates (.xlsx or .csv)</div>
+        <input type="file" id="salesFileInput" accept=".xlsx,.csv">
       </div>
-      <div class="filter-group">
-        <div class="filter-group-label">Transaction List by Customer (.xlsx or .csv)</div>
-        <input type="file" id="txFileInput" accept=".xlsx,.csv">
-      </div>
-      <div class="filter-group">
-        <div class="filter-group-label">Income by Customer Summary (.xlsx or .csv)</div>
-        <input type="file" id="incomeFileInput" accept=".xlsx,.csv">
-      </div>
-      <button class="clear-btn" id="processUpdateBtn" style="background:var(--blue); color:var(--white);">Process Files</button>
+      <button class="clear-btn" id="processUpdateBtn" style="background:var(--blue); color:var(--white);">Process File</button>
       <div id="updateStatus" class="section-note" style="margin-top:10px;"></div>
       <div id="updatePreview" style="display:none; margin-top:14px;">
         <div class="data-note" id="updatePreviewNote" style="background:var(--live-bg);"></div>
@@ -389,12 +381,10 @@
     expandedGroups: new Set(),
     expandedIndustries: new Set(),
     expandedMonths: new Set(),
-    updateDataOpen: false,
-    updateMode: "append"
+    updateDataOpen: false
   };
   var DATA = null;
-  var RAW_INVOICES = null; // lazy-loaded from invoices.json only when the Update Data panel is used
-  var pendingUpdate = null; // {dataJson, invoicesJson} once Process Files has run, until downloaded
+  var pendingUpdate = null; // {dataJson, invoicesJson} once Process File has run, until downloaded
   var NOT_IN_SAGE = "(Not in Sage)";
   var UNASSIGNED = "(Unassigned)";
 
@@ -611,14 +601,6 @@
     document.getElementById("updateDataHead").addEventListener("click", function(){
       state.updateDataOpen = !state.updateDataOpen;
       document.getElementById("updateDataPanel").classList.toggle("open", state.updateDataOpen);
-    });
-    document.querySelectorAll("#updateModeToggle .chip").forEach(function(chip){
-      chip.addEventListener("click", function(){
-        state.updateMode = chip.getAttribute("data-update-mode");
-        document.querySelectorAll("#updateModeToggle .chip").forEach(function(c){
-          c.classList.toggle("selected", c.getAttribute("data-update-mode") === state.updateMode);
-        });
-      });
     });
     document.getElementById("processUpdateBtn").addEventListener("click", processUpdateFiles);
     document.getElementById("downloadDataBtn").addEventListener("click", function(){
@@ -1277,11 +1259,20 @@
   }
 
   // ===================== Update Data (upload a fresh QuickBooks export) =====================
-  // Everything below runs entirely client-side -- parses the uploaded .xlsx in the browser (SheetJS,
-  // lazy-loaded), recomputes revenue using the same rules as build_plan_data.ps1, and hands back an
-  // updated data.json/invoices.json to download. It does NOT write anywhere itself -- GitHub Pages has
-  // no backend, so getting the result live still means sending the downloaded file back for a commit,
-  // same as every other data refresh in this suite. See BACKLOG.md for why that's the deliberate choice.
+  // Everything below runs entirely client-side -- parses one uploaded "Sales by Customer Detail" export
+  // (SheetJS, lazy-loaded) using the same logic as build_plan_data.ps1, and hands back an updated
+  // data.json/invoices.json to download. It does NOT write anywhere itself -- GitHub Pages has no backend,
+  // so getting the result live still means sending the downloaded file back for a commit, same as every
+  // other data refresh in this suite. See BACKLOG.md for why that's the deliberate choice.
+  //
+  // Single-file rebuild (added 2026-08-28, replacing an earlier two-file Overwrite/Append design): Matt's
+  // real weekly file is one QuickBooks report, "Sales by Customer Detail" run for "All Dates", scheduled
+  // into a Drive folder every Monday. Confirmed by reading a real copy of that file directly -- it's
+  // line-item level (one row per product line on an invoice/credit memo), and since it's always the full
+  // history, every upload here is a full rebuild, not an incremental merge. That also removed the need for
+  // the old tax-correction-ratio/proportional-monthly-weighting math: this report's Amount already ties to
+  // real Income-account postings (sales tax never appears as its own Income-type line), so monthly figures
+  // are now exact dated sums.
 
   var OWNERSHIP_CUTOFF = new Date("2025-04-01T00:00:00");
   var SHEETJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
@@ -1300,13 +1291,6 @@
     return sheetJsLoadPromise;
   }
 
-  function loadRawInvoicesIfNeeded(){
-    if (RAW_INVOICES) return Promise.resolve(RAW_INVOICES);
-    return fetch("./invoices.json?t=" + Date.now(), { cache: "no-store" })
-      .then(function(r){ return r.json(); })
-      .then(function(arr){ RAW_INVOICES = arr; return arr; });
-  }
-
   function readFileAsRows(file){
     return file.arrayBuffer().then(function(buf){
       var wb = XLSX.read(buf, { type: "array", cellDates: true });
@@ -1319,52 +1303,50 @@
   function toMonthKey(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); }
   function toDateStr(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 
-  // Mirrors the PowerShell Income-by-Customer-Summary parser: skip the 5 header/title rows, read
-  // Customer/Income/Expenses/Net until a blank row, "TOTAL", or the "Accrual Basis..." footer.
-  function parseIncomeSummaryRows(rows){
-    var out = {};
+  // Mirrors build_plan_data.ps1 Section 1: skip the 5 header/title rows, one row per product line (not
+  // per invoice) -- Customer, Transaction date, Transaction type, Num, ... Amount (col 8), ... Account
+  // type (col 13). Only Invoice/Credit Memo rows posting to an Income-type account count as real revenue;
+  // line items are summed up to one entry per (customer, invoice/credit-memo number).
+  function parseSalesDetailRows(rows){
+    var invoicesByCustomer = {};
+    var lastInvoiceDateByCustomer = {};
+    var rowCount = 0, minDate = null, maxDate = null;
+    var dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
     for (var i = 5; i < rows.length; i++){
       var r = rows[i];
       var customer = (r[0] || "").toString().trim();
       if (!customer) continue;
       if (customer === "TOTAL" || customer.indexOf("Accrual Basis") === 0) continue;
-      var income = parseFloat((r[1] || "0").toString().replace(/[$,]/g, "")) || 0;
-      var expenses = parseFloat((r[2] || "0").toString().replace(/[$,]/g, "")) || 0;
-      var net = parseFloat((r[3] || "0").toString().replace(/[$,]/g, "")) || 0;
-      out[customer] = { income: income, expenses: expenses, net: net };
-    }
-    return out;
-  }
 
-  // Mirrors the PowerShell Transaction-List-by-Customer parser: same section-header state machine,
-  // Invoice-type rows only, capturing Date/Amount/Num (Num is what makes append-mode dedup possible).
-  function parseTransactionListRows(rows){
-    var out = {};
-    var currentCustomer = null;
-    var dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
-    for (var i = 5; i < rows.length; i++){
-      var r = rows[i];
-      var c1 = (r[0] || "").toString().trim();
-      var c2 = (r[1] || "").toString().trim();
-      if (c1) {
-        if (c1.indexOf("Total for ") === 0 || c1.indexOf("Accrual Basis") === 0) continue;
-        currentCustomer = c1;
-        if (!out[currentCustomer]) out[currentCustomer] = [];
-        continue;
-      }
-      if (!currentCustomer) continue;
       var type = (r[2] || "").toString().trim();
-      if (dateRegex.test(c2) && type === "Invoice") {
-        var amt = parseFloat((r[7] || "0").toString().replace(/[$,]/g, ""));
-        if (!isNaN(amt)) {
-          var parts = c2.split("/");
-          var d = new Date(parseInt(parts[2],10), parseInt(parts[0],10)-1, parseInt(parts[1],10));
-          var num = (r[3] || "").toString().trim();
-          out[currentCustomer].push({ date: d, amount: amt, num: num });
-        }
+      if (type !== "Invoice" && type !== "Credit Memo") continue;
+      var acctType = (r[13] || "").toString().trim();
+      if (acctType !== "Income" && acctType !== "Other Income") continue;
+      var amt = parseFloat((r[8] || "").toString().replace(/[$,]/g, ""));
+      if (isNaN(amt)) continue;
+
+      var dateStr = (r[1] || "").toString().trim();
+      if (!dateRegex.test(dateStr)) continue;
+      var parts = dateStr.split("/");
+      var d = new Date(parseInt(parts[2],10), parseInt(parts[0],10)-1, parseInt(parts[1],10));
+
+      rowCount++;
+      if (!minDate || d < minDate) minDate = d;
+      if (!maxDate || d > maxDate) maxDate = d;
+
+      var num = (r[3] || "").toString().trim();
+      if (!invoicesByCustomer[customer]) invoicesByCustomer[customer] = {};
+      if (invoicesByCustomer[customer][num]) {
+        invoicesByCustomer[customer][num].amount += amt;
+      } else {
+        invoicesByCustomer[customer][num] = { date: d, amount: amt, num: num, type: type };
+      }
+
+      if (type === "Invoice" && (!lastInvoiceDateByCustomer[customer] || d > lastInvoiceDateByCustomer[customer])) {
+        lastInvoiceDateByCustomer[customer] = d;
       }
     }
-    return out;
+    return { invoicesByCustomer: invoicesByCustomer, lastInvoiceDateByCustomer: lastInvoiceDateByCustomer, rowCount: rowCount, minDate: minDate, maxDate: maxDate };
   }
 
   // Port of Is-BoundarySafePrefix / the family-rollup pass in build_plan_data.ps1 -- must stay identical
@@ -1390,161 +1372,63 @@
     return familyKeyByName;
   }
 
-  // Financials for one customer given their full invoice list + the audited "Income" figure -- same
-  // tax-correction-ratio + monthly-weighting math as build_plan_data.ps1's per-customer loop. Note:
-  // in append mode the invoice list is existing-post-cutoff-invoices + newly uploaded ones merged, not
-  // true lifetime invoices (invoices.json only ever stores post-cutoff rows) -- so the tax ratio here is
-  // an approximation based on available post-cutoff data, not the exact lifetime ratio the original
-  // PowerShell run used. Close enough in practice (sales tax rate doesn't vary by window), but real.
-  function computeClientFinancials(invoices, rawIncome){
-    var grossTotal = 0;
-    invoices.forEach(function(inv){ grossTotal += inv.amount; });
-    var taxRatio = grossTotal > 0 ? (rawIncome / grossTotal) : 1.0;
-
-    var grossByMonth = {}, grossSinceCutoff = 0, orderCount = 0, lastInvoiceDate = null;
-    invoices.forEach(function(inv){
-      if (!lastInvoiceDate || inv.date > lastInvoiceDate) lastInvoiceDate = inv.date;
-      if (inv.date < OWNERSHIP_CUTOFF) return;
-      orderCount++;
-      grossSinceCutoff += inv.amount;
-      var mk = toMonthKey(inv.date);
-      grossByMonth[mk] = (grossByMonth[mk] || 0) + inv.amount;
-    });
-    var totalIncome = round2(grossSinceCutoff * taxRatio);
-    var monthly = {};
-    if (grossSinceCutoff > 0) {
-      Object.keys(grossByMonth).forEach(function(mk){
-        monthly[mk] = round2((grossByMonth[mk] / grossSinceCutoff) * totalIncome);
-      });
-    }
-    return { totalIncome: totalIncome, monthly: monthly, orderCount: orderCount, lastInvoiceDate: lastInvoiceDate ? toDateStr(lastInvoiceDate) : null };
-  }
-
   function setUpdateStatus(msg){ document.getElementById("updateStatus").textContent = msg; }
-
-  function processUpdateFiles(){
-    var txFile = document.getElementById("txFileInput").files[0];
-    var incomeFile = document.getElementById("incomeFileInput").files[0];
-    if (!txFile && !incomeFile) { setUpdateStatus("Choose at least one file first."); return; }
-
-    document.getElementById("updatePreview").style.display = "none";
-    setUpdateStatus("Loading parser…");
-
-    loadSheetJs()
-      .then(function(){
-        return Promise.all([
-          txFile ? readFileAsRows(txFile).then(parseTransactionListRows) : Promise.resolve(null),
-          incomeFile ? readFileAsRows(incomeFile).then(parseIncomeSummaryRows) : Promise.resolve(null),
-          state.updateMode === "append" ? loadRawInvoicesIfNeeded() : Promise.resolve(null)
-        ]);
-      })
-      .then(function(results){
-        setUpdateStatus("Recomputing…");
-        var newInvoicesByCustomer = results[0];
-        var newIncomeByCustomer = results[1];
-        runRecompute(newInvoicesByCustomer, newIncomeByCustomer, !!txFile, !!incomeFile);
-      })
-      .catch(function(err){
-        setUpdateStatus("Error: " + err.message);
-      });
-  }
 
   function fmtDateShort(d){
     var names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     return names[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
   }
 
-  function runRecompute(newInvoicesByCustomer, newIncomeByCustomer, hasTxFile, hasIncomeFile){
-    var mode = state.updateMode;
+  function processUpdateFiles(){
+    var salesFile = document.getElementById("salesFileInput").files[0];
+    if (!salesFile) { setUpdateStatus("Choose the Sales by Customer Detail file first."); return; }
+
+    document.getElementById("updatePreview").style.display = "none";
+    setUpdateStatus("Loading parser…");
+
+    loadSheetJs()
+      .then(function(){ return readFileAsRows(salesFile); })
+      .then(function(rows){
+        setUpdateStatus("Rebuilding…");
+        runRebuild(parseSalesDetailRows(rows));
+      })
+      .catch(function(err){
+        setUpdateStatus("Error: " + err.message);
+      });
+  }
+
+  // Always a full rebuild -- the uploaded file is "All Dates" every time, so there's no prior state to
+  // merge against. Sage-derived fields (industry, acctRep, etc.) for companies already known carry
+  // forward from the currently-loaded data.json (this flow doesn't re-upload a fresh Sage export); a
+  // company with no match yet gets matched: false, same as the existing unmatched-customer pattern.
+  function runRebuild(parsed){
     var existingByCompany = {};
     DATA.clients.forEach(function(c){ existingByCompany[c.company] = c; });
+    var oldTotal = DATA.meta.totalIncome;
+    var oldCount = DATA.meta.totalClients;
 
-    // Raw stats on the uploaded Transaction List itself, independent of matching/dedup -- lets the
-    // summary confirm "this upload covers the dates I expected" before trusting anything downstream.
-    var newInvoiceRowCount = 0, newInvoiceMinDate = null, newInvoiceMaxDate = null, newInvoicesBeforeCutoff = 0;
-    if (newInvoicesByCustomer) {
-      Object.keys(newInvoicesByCustomer).forEach(function(company){
-        newInvoicesByCustomer[company].forEach(function(inv){
-          newInvoiceRowCount++;
-          if (!newInvoiceMinDate || inv.date < newInvoiceMinDate) newInvoiceMinDate = inv.date;
-          if (!newInvoiceMaxDate || inv.date > newInvoiceMaxDate) newInvoiceMaxDate = inv.date;
-          if (inv.date < OWNERSHIP_CUTOFF) newInvoicesBeforeCutoff++;
-        });
-      });
-    }
-    var incomeSummaryCustomerCount = newIncomeByCustomer ? Object.keys(newIncomeByCustomer).length : 0;
-
-    // Existing post-cutoff invoices grouped by company, as {date:Date, amount, num} -- only relevant
-    // for append mode, where they form the base that new invoices merge into.
-    var existingInvoicesByCompany = {};
-    if (mode === "append" && RAW_INVOICES) {
-      RAW_INVOICES.forEach(function(inv){
-        if (!existingInvoicesByCompany[inv.company]) existingInvoicesByCompany[inv.company] = [];
-        existingInvoicesByCompany[inv.company].push({ date: new Date(inv.date + "T00:00:00"), amount: inv.amount, num: inv.num });
-      });
-    }
-
-    var touchedCompanies = newIncomeByCustomer ? Object.keys(newIncomeByCustomer) : [];
-    var newInvoiceCompanies = newInvoicesByCustomer ? Object.keys(newInvoicesByCustomer) : [];
-    var allCompanies = {};
-    if (mode === "overwrite") {
-      // Include newInvoiceCompanies too (not just touchedCompanies) so a company with transaction rows
-      // but no matching Income Summary row still gets evaluated -- it won't be kept (overwrite mode only
-      // keeps touched companies), but it needs to hit the "ignored, no income match" counter below instead
-      // of silently vanishing.
-      touchedCompanies.forEach(function(c){ allCompanies[c] = true; });
-      newInvoiceCompanies.forEach(function(c){ allCompanies[c] = true; });
-    } else {
-      Object.keys(existingByCompany).forEach(function(c){ allCompanies[c] = true; });
-      touchedCompanies.forEach(function(c){ allCompanies[c] = true; });
-      newInvoiceCompanies.forEach(function(c){ allCompanies[c] = true; });
-    }
-    var companyList = Object.keys(allCompanies);
-
-    var newInvoicesAdded = 0, newInvoicesSkippedDup = 0, invoicesIgnoredNoIncome = 0, customersUpdated = 0;
-    var clientsOut = [], unmatched = [], invoicesFlatOut = [], allMonths = {}, touchedMonths = {}, newCustomerNames = [];
-    var oldTotal = 0, newTotal = 0;
+    var companyList = Object.keys(parsed.invoicesByCustomer);
+    var clientsOut = [], unmatched = [], invoicesFlatOut = [], allMonths = {}, newCustomerNames = [];
+    var newTotal = 0;
 
     companyList.forEach(function(company){
       var existing = existingByCompany[company] || null;
-      if (existing) oldTotal += existing.totalIncome;
-      var willUpdate = mode === "overwrite" ? touchedCompanies.indexOf(company) !== -1 : (newIncomeByCustomer && newIncomeByCustomer[company]);
-
-      if (!willUpdate) {
-        // Untouched by this upload -- carry the existing client forward exactly as-is. A company can
-        // have new invoice rows in the upload but still land here (e.g. no matching Income Summary row) --
-        // those rows need to show up as "ignored" regardless of whether the company was already known.
-        if (existing) {
-          clientsOut.push(existing);
-          newTotal += existing.totalIncome;
-          if (!existing.matched) unmatched.push(company);
-          Object.keys(existing.monthly || {}).forEach(function(mk){ allMonths[mk] = true; });
-          (existingInvoicesByCompany[company] || []).forEach(function(inv){
-            invoicesFlatOut.push({ company: company, num: inv.num, date: toDateStr(inv.date), amount: inv.amount });
-          });
-        }
-        if (newInvoiceCompanies.indexOf(company) !== -1) {
-          invoicesIgnoredNoIncome += (newInvoicesByCustomer[company] || []).length;
-        }
-        return;
-      }
-
       if (!existing) newCustomerNames.push(company);
-      customersUpdated++;
-      // Merge invoices: existing post-cutoff (append mode only) + new ones, deduped by invoice number.
-      var mergedInvoices = mode === "append" ? (existingInvoicesByCompany[company] || []).slice() : [];
-      var seenNums = {};
-      mergedInvoices.forEach(function(inv){ if (inv.num) seenNums[inv.num] = true; });
-      (newInvoicesByCustomer && newInvoicesByCustomer[company] || []).forEach(function(inv){
-        if (inv.num && seenNums[inv.num]) { newInvoicesSkippedDup++; return; }
-        if (inv.num) seenNums[inv.num] = true;
-        mergedInvoices.push(inv);
-        newInvoicesAdded++;
-        if (inv.date >= OWNERSHIP_CUTOFF) touchedMonths[toMonthKey(inv.date)] = true;
-      });
 
-      var rawIncome = newIncomeByCustomer[company].income;
-      var fin = computeClientFinancials(mergedInvoices, rawIncome);
+      var monthly = {}, orderCount = 0, totalIncome = 0;
+      Object.keys(parsed.invoicesByCustomer[company]).forEach(function(num){
+        var inv = parsed.invoicesByCustomer[company][num];
+        if (inv.date < OWNERSHIP_CUTOFF) return;
+        if (inv.type === "Invoice") orderCount++;
+        totalIncome += inv.amount;
+        var mk = toMonthKey(inv.date);
+        monthly[mk] = round2((monthly[mk] || 0) + inv.amount);
+        allMonths[mk] = true;
+        invoicesFlatOut.push({ company: company, num: inv.num, date: toDateStr(inv.date), amount: round2(inv.amount) });
+      });
+      totalIncome = round2(totalIncome);
+
+      var lastInvoiceDate = parsed.lastInvoiceDateByCustomer[company];
       var record = {
         company: company,
         matched: existing ? existing.matched : false,
@@ -1556,20 +1440,14 @@
         salesPotential: existing ? existing.salesPotential : null,
         city: existing ? existing.city : null,
         state: existing ? existing.state : null,
-        lastInvoiceDate: fin.lastInvoiceDate,
-        totalIncome: fin.totalIncome,
-        expenses: newIncomeByCustomer[company].expenses,
-        netIncome: newIncomeByCustomer[company].net,
-        orderCount: fin.orderCount,
-        monthly: fin.monthly
+        lastInvoiceDate: lastInvoiceDate ? toDateStr(lastInvoiceDate) : (existing ? existing.lastInvoiceDate : null),
+        totalIncome: totalIncome,
+        orderCount: orderCount,
+        monthly: monthly
       };
       clientsOut.push(record);
-      newTotal += fin.totalIncome;
+      newTotal += totalIncome;
       if (!record.matched) unmatched.push(company);
-      Object.keys(fin.monthly).forEach(function(mk){ allMonths[mk] = true; });
-      mergedInvoices.forEach(function(inv){
-        if (inv.date >= OWNERSHIP_CUTOFF) invoicesFlatOut.push({ company: company, num: inv.num, date: toDateStr(inv.date), amount: inv.amount });
-      });
     });
 
     var familyKeyByName = computeFamilyKeys(clientsOut.map(function(c){ return c.company; }));
@@ -1591,42 +1469,43 @@
 
     pendingUpdate = { dataJson: JSON.stringify(out), invoicesJson: JSON.stringify(invoicesFlatOut) };
 
+    // Companies that had revenue before but have zero activity in this upload -- they're about to be
+    // dropped from the dataset entirely. Worth a name-by-name callout, not just a number, since a company
+    // silently vanishing is exactly the kind of thing a "did this go in clean" check should catch.
+    var droppedCompanies = Object.keys(existingByCompany).filter(function(c){ return !parsed.invoicesByCustomer[c]; });
+
     var delta = newTotal - oldTotal;
     var deltaStr = (delta >= 0 ? "+" : "-") + fmtMoney(Math.abs(delta));
-    var headline = "<b>" + customersUpdated + " customer" + (customersUpdated===1?"":"s") + " updated</b>" +
+    var headline = "<b>" + clientsOut.length.toLocaleString() + " customers loaded</b>" +
       (newCustomerNames.length ? " (" + newCustomerNames.length + " new)" : "") +
       " &nbsp;·&nbsp; " + fmtMoney(oldTotal) + " → " + fmtMoney(newTotal) + " (" + deltaStr + ")";
 
     var items = [];
-    if (hasTxFile) {
-      items.push("Transaction List: " + newInvoiceRowCount.toLocaleString() + " invoice row" + (newInvoiceRowCount===1?"":"s") + " read" +
-        (newInvoiceMinDate ? ", dated " + fmtDateShort(newInvoiceMinDate) + " – " + fmtDateShort(newInvoiceMaxDate) : ""));
-    } else {
-      items.push("No Transaction List uploaded this run — invoice detail unchanged.");
-    }
-    if (hasIncomeFile) {
-      items.push("Income Summary: " + incomeSummaryCustomerCount.toLocaleString() + " customer" + (incomeSummaryCustomerCount===1?"":"s") + " found");
-    } else {
-      items.push("No Income Summary uploaded this run — revenue totals unchanged.");
+    items.push(parsed.rowCount.toLocaleString() + " sales row" + (parsed.rowCount===1?"":"s") + " read" +
+      (parsed.minDate ? ", dated " + fmtDateShort(parsed.minDate) + " – " + fmtDateShort(parsed.maxDate) : ""));
+    items.push(invoicesFlatOut.length.toLocaleString() + " invoice/credit-memo record" + (invoicesFlatOut.length===1?"":"s") + " since " + fmtDateShort(OWNERSHIP_CUTOFF) + " across " + monthsSorted.length + " month" + (monthsSorted.length===1?"":"s") + " (" + (monthsSorted.length ? monthLabel(monthsSorted[0]) + " – " + monthLabel(monthsSorted[monthsSorted.length-1]) : "none") + ")");
+    function namesList(names, cap){
+      var sorted = names.slice().sort();
+      if (sorted.length <= cap) return sorted.join(", ");
+      return sorted.slice(0, cap).join(", ") + ", and " + (sorted.length - cap) + " more";
     }
     if (newCustomerNames.length) {
-      items.push("New customer" + (newCustomerNames.length===1?"":"s") + " (not seen before): " + newCustomerNames.slice().sort().join(", "));
+      items.push("New customer" + (newCustomerNames.length===1?"":"s") + " (not seen before): " + namesList(newCustomerNames, 15));
     }
-    if (state.updateMode === "append") {
-      items.push(newInvoicesAdded.toLocaleString() + " new invoice" + (newInvoicesAdded===1?"":"s") + " added, " + newInvoicesSkippedDup.toLocaleString() + " already present (skipped as duplicate)");
+    if (droppedCompanies.length) {
+      items.push("⚠ " + droppedCompanies.length + " customer" + (droppedCompanies.length===1?"":"s") + " from the current data " + (droppedCompanies.length===1?"has":"have") + " no activity in this file and will be removed: " + namesList(droppedCompanies, 15));
     }
-    var touchedMonthsSorted = Object.keys(touchedMonths).sort();
-    if (touchedMonthsSorted.length) {
-      items.push("Month" + (touchedMonthsSorted.length===1?"":"s") + " affected: " + touchedMonthsSorted.map(monthLabel).join(", "));
-    }
-    if (invoicesIgnoredNoIncome > 0) {
-      items.push("⚠ " + invoicesIgnoredNoIncome.toLocaleString() + " invoice row(s) ignored — customer not present in the uploaded Income Summary");
-    }
-    if (newInvoicesBeforeCutoff > 0) {
-      items.push("ℹ " + newInvoicesBeforeCutoff.toLocaleString() + " new invoice row(s) dated before the Apr 1, 2025 ownership cutoff — used for the tax-rate calc but excluded from revenue");
-    }
-    if (hasTxFile && !hasIncomeFile && newInvoiceRowCount > 0) {
-      items.push("⚠ Upload the Income Summary too — without it, new invoice rows can't be matched to a revenue total and are ignored.");
+
+    // Safety check: since every upload fully replaces the dataset, a wrong file (scoped to a date range
+    // instead of "All Dates", or a stale download) would silently wipe real history rather than error out.
+    // A big drop in customer count or total revenue vs. what's currently loaded is the tell -- flag it
+    // loudly rather than let a bad file through unnoticed.
+    var custDropPct = oldCount > 0 ? (oldCount - clientsOut.length) / oldCount : 0;
+    var revDropPct = oldTotal > 0 ? (oldTotal - newTotal) / oldTotal : 0;
+    if (custDropPct > 0.15 || revDropPct > 0.15) {
+      items.push("⚠⚠ This file has notably less data than what's currently loaded (" +
+        (custDropPct > 0.15 ? Math.round(custDropPct*100) + "% fewer customers" : Math.round(revDropPct*100) + "% less revenue") +
+        ") — double check this is really the \"All Dates\" export before sending this back for a deploy.");
     }
 
     document.getElementById("updatePreviewNote").innerHTML =
