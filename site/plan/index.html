@@ -114,6 +114,13 @@
 
   /* Chart */
   .chart-card{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; padding:16px; margin-bottom:16px;}
+  .chart-legend{display:flex; gap:16px; flex-wrap:wrap; font-size:0.74rem; color:var(--gray-text); margin-bottom:10px;}
+  .chart-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .legend-swatch{width:12px; height:8px; border-radius:2px; display:inline-block;}
+  .legend-tick{background:none; border-top:2px dashed var(--navy); width:14px; height:0;}
+  .legend-mom{font-weight:700; font-size:0.76rem;}
+  .mom-up-text{color:var(--live);}
+  .mom-down-text{color:var(--warn);}
   .chart-svg{width:100%; height:220px; display:block; overflow:visible;}
   .bar{fill:var(--blue); cursor:pointer;}
   .bar:hover{fill:var(--blue-dark);}
@@ -124,6 +131,10 @@
   }
   .chart-wrap{position:relative;}
   .axis-label{font-size:9px; fill:var(--gray-text); font-family:inherit;}
+  .mom-label{font-size:8px; font-weight:700; font-family:inherit;}
+  .mom-label.mom-up{fill:var(--live);}
+  .mom-label.mom-down{fill:var(--warn);}
+  .yoy-tick{stroke:var(--navy); stroke-width:2; stroke-dasharray:2,1.5;}
 
   /* Table */
   .table-card{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; overflow:hidden; margin-bottom:16px;}
@@ -227,8 +238,13 @@
   <div id="unmatchedNote"></div>
 
   <div class="section-title">Month-to-Month Revenue</div>
-  <div class="section-note">Reacts to the filters above. Hover a bar for the exact figure.</div>
+  <div class="section-note">Reacts to the filters above. Hover a bar for exact figures, including the year-over-year comparison.</div>
   <div class="chart-card">
+    <div class="chart-legend">
+      <span><span class="legend-swatch" style="background:var(--blue);"></span>Revenue</span>
+      <span><span class="legend-swatch legend-tick"></span>Same month last year</span>
+      <span><span class="legend-mom mom-up-text">▲12%</span> / <span class="legend-mom mom-down-text">▼8%</span> month-over-month, above each bar</span>
+    </div>
     <div class="chart-wrap">
       <svg class="chart-svg" id="chartSvg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
       <div class="chart-tooltip" id="chartTooltip"></div>
@@ -674,13 +690,28 @@
         byMonth[m] += (c.monthly[m] || 0);
       });
     });
+    // Same-month-last-year total per displayed month (independent of `months`, which only spans the
+    // selected range) -- needed for the YoY reference tick even when last year falls outside the range.
+    var priorYearByMonth = {};
+    months.forEach(function(m){
+      var pk = priorYearKey(m);
+      var sum = 0;
+      DATA.clients.forEach(function(c){
+        if (!filteredCompanies[c.company]) return;
+        sum += (c.monthly[pk] || 0);
+      });
+      priorYearByMonth[m] = sum;
+    });
 
-    var W = 1000, H = 220, padL = 4, padR = 4, padB = 22, padT = 10;
+    var W = 1000, H = 220, padL = 4, padR = 4, padB = 22, padT = 26;
     var chartW = W - padL - padR, chartH = H - padT - padB;
     var n = months.length || 1;
     var gap = 2;
     var barW = Math.max(2, (chartW / n) - gap);
-    var maxVal = Math.max.apply(null, months.map(function(m){ return byMonth[m]; }).concat([1]));
+    var maxVal = Math.max.apply(null,
+      months.map(function(m){ return byMonth[m]; })
+        .concat(months.map(function(m){ return priorYearByMonth[m]; }))
+        .concat([1]));
 
     var svgParts = [];
     var labelEvery = Math.ceil(n / 14) || 1;
@@ -689,9 +720,36 @@
       var x = padL + i * (chartW / n) + gap/2;
       var h = maxVal > 0 ? (val / maxVal) * chartH : 0;
       var y = padT + chartH - h;
+      var cx = x + barW/2;
+
       svgParts.push('<rect class="bar" data-month="' + m + '" data-val="' + val.toFixed(2) + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(h,1).toFixed(1) + '" rx="3"></rect>');
+
+      // Month-to-month delta, as a compact label directly above the bar. Suppressed below a small
+      // materiality floor ($500) -- a jump off a near-zero prior month produces a technically-correct
+      // but meaningless swing (e.g. "+164810%"), same "not enough baseline" logic used elsewhere in Plan.
+      if (i > 0) {
+        var prevVal = byMonth[months[i-1]];
+        if (prevVal >= 500) {
+          var momPct = (val - prevVal) / prevVal * 100;
+          var momCls = momPct >= 0 ? "mom-up" : "mom-down";
+          var momArrow = momPct >= 0 ? "▲" : "▼";
+          var momDisplay = Math.abs(momPct) >= 999 ? "999+" : (Math.abs(momPct)>=100 ? Math.round(momPct) : momPct.toFixed(0));
+          var labelY = Math.max(y - 6, 11);
+          svgParts.push('<text class="mom-label ' + momCls + '" x="' + cx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" text-anchor="middle">' + momArrow + momDisplay + '%</text>');
+        }
+      }
+
+      // Year-over-year reference tick: a short dash at last year's same-month height, so this year's
+      // bar reads against it at a glance without a second text label crowding every bar.
+      var priorVal = priorYearByMonth[m];
+      if (priorVal > 0) {
+        var priorH = maxVal > 0 ? (priorVal / maxVal) * chartH : 0;
+        var priorY = padT + chartH - priorH;
+        svgParts.push('<line class="yoy-tick" data-prior-val="' + priorVal.toFixed(2) + '" x1="' + (x - 1).toFixed(1) + '" x2="' + (x + barW + 1).toFixed(1) + '" y1="' + priorY.toFixed(1) + '" y2="' + priorY.toFixed(1) + '"></line>');
+      }
+
       if (i % labelEvery === 0) {
-        svgParts.push('<text class="axis-label" x="' + (x + barW/2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + monthLabel(m) + '</text>');
+        svgParts.push('<text class="axis-label" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + monthLabel(m) + '</text>');
       }
     });
     svg.innerHTML = svgParts.join("");
@@ -701,7 +759,13 @@
         var rect = svg.getBoundingClientRect();
         var mk = bar.getAttribute("data-month");
         var val = parseFloat(bar.getAttribute("data-val"));
-        tooltip.textContent = monthLabel(mk) + ": " + fmtMoney(val);
+        var priorVal = priorYearByMonth[mk];
+        var text = monthLabel(mk) + ": " + fmtMoney(val);
+        if (priorVal > 0) {
+          var yoyPct = (val - priorVal) / priorVal * 100;
+          text += "  |  " + monthLabel(priorYearKey(mk)) + ": " + fmtMoney(priorVal) + " (" + (yoyPct>=0?"+":"") + yoyPct.toFixed(0) + "%)";
+        }
+        tooltip.textContent = text;
         tooltip.style.left = (e.clientX - rect.left) + "px";
         tooltip.style.top = (e.clientY - rect.top) + "px";
         tooltip.style.opacity = "1";
