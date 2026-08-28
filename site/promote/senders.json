@@ -1,13 +1,13 @@
 {
   "_notes": "Reference data for Promote's sender dropdown -- edit this file, not the app, when staff changes.",
   "senders": [
+    { "name": "Matt Yarbrough", "email": "Matt@embassygear.com" },
     { "name": "Michelle Schmidt", "email": "Michelle@embassygear.com" },
     { "name": "Autumn Scroggins", "email": "Autumn@embassygear.com" },
     { "name": "Chasity Farmer", "email": "Chasity@embassygear.com" },
     { "name": "Jeanie Brake", "email": "Jeanie@embassygear.com" },
     { "name": "Emily Henson", "email": "Emily@embassygear.com" },
-    { "name": "Kevin Greim", "email": "Kevin@embassygear.com" },
-    { "name": "Matt Yarbrough", "email": "Matt@embassygear.com" }
+    { "name": "Kevin Greim", "email": "Kevin@embassygear.com" }
   ],
   "tones": ["Auto-Detect", "Professional", "Creative/Fun", "Urgency/Short", "Consultative"]
 }
