@@ -23,6 +23,12 @@ Flow: pick sender + tone → upload a flyer PDF (renders page 1 to PNG) → sele
 
 **Why manual send, not a real email API**: Matt's team is described as "not tech savvy" and prefers things "old school" — they trust that a campaign visibly shows up in Outlook before it sends. A real email-sending API (Gmail API, SendGrid, etc.) would remove that visible confirmation and, more importantly, needs a real backend to hold credentials safely — same shape as the currently-paused Firebase/Supabase auth decision (see `README.md`'s Suite-level architecture note and `BACKLOG.md`'s consolidated API section). Not realistic for the 9/1 deadline regardless. Revisit only if/when that backend decision gets made for other reasons.
 
+## Flyer builder — added 2026-08-27, alongside PDF upload
+
+Matt's idea while testing: don't require an existing flyer PDF, offer a build-one-in-app path too. Scoped with him first — three options laid out (simple template fill-in / free-form canvas / AI-generated from a prompt), he picked the template fill-in as the fastest and most predictable.
+
+A toggle switches between "Upload PDF" (unchanged) and "Build a Flyer": 3 templates (Bold Banner, Split Focus, Minimal Center), each rendered entirely client-side on a `<canvas>` — headline/subheadline/contact-line fields update the preview live, the real Embassy compass logo (`../favicon.png`) draws into every template. The rendered canvas feeds `state.flyerBase64` exactly like a PDF upload does, so it goes through the identical `.eml`/Test Mode pipeline with no changes needed downstream. `renderFlyerTemplate()` is the entry point; add a new template by adding a case there and an entry to `FLYER_TEMPLATES`.
+
 ## Test Mode — added 2026-08-27, on by default
 
 Matt asked how recipient emails get pulled in, worried about accidentally BCC-ing real clients while testing. The real mechanism: `data.json` (built from `ClientRpt.xlsx`) is already live on the deployed page the moment it's pushed — picking any industry in the UI puts real emails in the Bcc line immediately, well before anyone opens the file or hits Send in Outlook.
