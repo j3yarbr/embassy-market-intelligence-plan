@@ -1,6 +1,6 @@
 # Plan
 
-**Status:** 🟢 v1 live · **Last updated:** 2026-08-27
+**Status:** 🟢 v1 live · **Last updated:** 2026-08-28
 **Live URL:** https://j3yarbr.github.io/embassy-market-intelligence-plan/plan/
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Plan is the "Morning Report" — a real financial dashboard modeled on the daily report Matt used in merchandising at a previous job (Walmart), keeping the suite accountable to real numbers instead of projections. Unlocked 2026-08-26, the day Matt got QuickBooks financials access.
@@ -21,7 +21,12 @@ Filters (Industry, Account Rep, month range) sit in a collapsible panel, default
 3. `Phase 5 Market Intelligence - Plan\build_plan_data.ps1` parses the Transaction List's Invoice-type lines only (Payments are excluded — summing both would double-count revenue) into per-customer, per-month gross totals, then distributes each customer's *audited* Income-by-Customer total across months using those gross-amount proportions as weights. This matters: gross invoice amounts include sales tax and don't tie to "Income" (confirmed directly — one real invoice was $1,005.99 gross vs. $931.68 Income, an ~8% gap consistent with regional sales tax). Weighting this way means every client's monthly figures still sum exactly to the audited total.
 4. Joins to the Sage client export by exact company-name match (622 of 731 QuickBooks customers matched an active Sage record on the 2026-08-26 run).
 5. Computes company-family groups (`familyKey`) via a conservative rule: name A "roots" name B only when B starts with A followed by a non-alphanumeric boundary character (space/hyphen/&/comma) — e.g. "Jack Henry" roots "Jack Henry-Golf". Deliberately does **not** group things like "Kubota of Joplin"/"Kubota of Harrison" (neither is a prefix of the other) — under-grouping is the safe failure mode for financial data, over-grouping is not.
-6. Outputs `plan_data.json` (~275KB) → copied to `site/plan/data.json`.
+6. **Excludes every invoice dated before 2025-04-01** (`$OWNERSHIP_CUTOFF` in the script) — current ownership took over ~summer 2025, and pre-cutoff revenue belongs to the previous owner, not meaningful to report on (Matt, 2026-08-28). This is a real data-layer exclusion, not a UI filter: `totalIncome`, `orderCount`, and every `monthly` entry only ever reflect post-cutoff invoices. `totalIncome` is computed as the post-cutoff gross invoice total × a tax-correction ratio derived from that client's *full* invoice history (keeps the sales-tax correction described above without letting pre-cutoff dollars leak into the current-ownership total). `lastInvoiceDate` deliberately stays lifetime — still useful to know when a client last showed up at all, even if their current-ownership revenue is $0. **If a data refresh looks like it "lost" 2024 revenue, this is why, not a bug.**
+7. Outputs `plan_data.json` (~275KB, now spanning 2025-04 onward) → copied to `site/plan/data.json`.
+
+## Default view: current fiscal year, not the full data span
+
+Embassy is a private LLC — fiscal year is the calendar year (Jan-Dec). Both the initial page load and "Clear all filters" default the month-range to Jan of the latest year present in the data through the latest available month (e.g. Jan-Aug '26), via `defaultFiscalYearRange()` in `index.html`. "Revenue in Range" therefore reads as a real year-to-date figure by default, not a blend across the ownership change and multiple partial years. The full data range is still reachable by hand through the month-range selects in the Filters panel.
 
 **The script currently expects the three source CSVs already exported to a scratch folder** — rerun the Excel-COM export step first with fresh paths, update the `$scratch` variable at the top of the script, then run it. Not yet a single one-command pipeline.
 
