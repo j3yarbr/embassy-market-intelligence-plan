@@ -344,9 +344,20 @@
       console.error(err);
     });
 
+  // Default/reset view: current fiscal year (calendar year, Jan-Dec -- Embassy is a private LLC with
+  // no separate fiscal year) through the latest available month, not the full multi-year data span.
+  function defaultFiscalYearRange(){
+    var months = DATA.meta.months;
+    var lastMonth = months[months.length - 1];
+    var latestYear = lastMonth.split("-")[0];
+    var inLatestYear = months.filter(function(m){ return m.indexOf(latestYear + "-") === 0; });
+    return { from: inLatestYear.length ? inLatestYear[0] : months[0], to: lastMonth };
+  }
+
   function init(){
-    state.fromMonth = DATA.meta.months[0];
-    state.toMonth = DATA.meta.months[DATA.meta.months.length - 1];
+    var range = defaultFiscalYearRange();
+    state.fromMonth = range.from;
+    state.toMonth = range.to;
 
     buildFilterChips();
     buildMonthSelects();
@@ -470,8 +481,9 @@
       e.stopPropagation();
       state.industries.clear();
       state.reps.clear();
-      state.fromMonth = DATA.meta.months[0];
-      state.toMonth = DATA.meta.months[DATA.meta.months.length - 1];
+      var range = defaultFiscalYearRange();
+      state.fromMonth = range.from;
+      state.toMonth = range.to;
       document.getElementById("fromMonth").value = state.fromMonth;
       document.getElementById("toMonth").value = state.toMonth;
       document.querySelectorAll("#industryChips .chip, #repChips .chip").forEach(function(c){ c.classList.remove("selected"); });
