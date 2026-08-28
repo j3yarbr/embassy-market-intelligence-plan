@@ -105,6 +105,23 @@
   .upload-zone:hover{border-color:var(--blue); color:var(--blue);}
   .upload-zone.has-file{border-color:var(--live); color:var(--live); border-style:solid;}
 
+  .chip-row{display:flex; gap:8px; margin-bottom:12px;}
+  .chip{
+    font-size:0.82rem; font-weight:700; padding:8px 16px; border-radius:20px;
+    border:1.5px solid var(--gray-line); background:var(--white); color:var(--navy-deep); cursor:pointer;
+  }
+  .chip:hover{border-color:var(--blue);}
+  .chip.selected{background:var(--blue); border-color:var(--blue); color:var(--white);}
+
+  .template-picker{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+  .template-card{
+    border:2px solid var(--gray-line); border-radius:8px; padding:10px 6px; text-align:center;
+    cursor:pointer; font-size:0.78rem; font-weight:600; color:var(--gray-text);
+  }
+  .template-card:hover{border-color:var(--blue);}
+  .template-card.selected{border-color:var(--blue); background:var(--blue-soft); color:var(--blue);}
+  .template-card .swatch{height:44px; border-radius:5px; margin-bottom:6px;}
+
   .flyer-preview{
     border:1px solid var(--gray-line); border-radius:10px; overflow:hidden; background:var(--gray-bg);
     display:flex; align-items:center; justify-content:center; min-height:280px;
@@ -184,9 +201,32 @@
           </div>
         </div>
         <div class="field">
-          <label for="flyerInput">Flyer (PDF)</label>
-          <input type="file" id="flyerInput" accept="application/pdf" style="display:none;">
-          <div class="upload-zone" id="uploadZone">📁 Click to upload a flyer PDF — page 1 will be used</div>
+          <label>Flyer</label>
+          <div class="chip-row" id="flyerModeToggle">
+            <div class="chip" data-flyer-mode="upload">📁 Upload PDF</div>
+            <div class="chip" data-flyer-mode="build">🎨 Build a Flyer</div>
+          </div>
+
+          <div id="flyerUploadSection">
+            <input type="file" id="flyerInput" accept="application/pdf" style="display:none;">
+            <div class="upload-zone" id="uploadZone">📁 Click to upload a flyer PDF — page 1 will be used</div>
+          </div>
+
+          <div id="flyerBuildSection" style="display:none;">
+            <div class="template-picker" id="templatePicker"></div>
+            <div class="field">
+              <label for="flyerHeadline">Headline</label>
+              <input type="text" id="flyerHeadline" placeholder="e.g. Custom Branded Apparel for Your Team">
+            </div>
+            <div class="field">
+              <label for="flyerSubheadline">Subheadline</label>
+              <input type="text" id="flyerSubheadline" placeholder="e.g. Uniforms, giveaways, and gear that build your brand">
+            </div>
+            <div class="field">
+              <label for="flyerContactLine">Contact Line</label>
+              <input type="text" id="flyerContactLine" value="embassygear.com" placeholder="e.g. embassygear.com  |  (555) 123-4567">
+            </div>
+          </div>
         </div>
         <div class="field">
           <label for="keywordsInput">Campaign Keywords</label>
@@ -256,8 +296,14 @@
     industryPanelOpen: false,
     flyerBase64: null,
     flyerFileName: null,
-    testMode: true
+    testMode: true,
+    flyerMode: "upload",
+    flyerTemplate: "banner"
   };
+  var logoImg = new Image();
+  var logoLoaded = false;
+  logoImg.onload = function(){ logoLoaded = true; if (state.flyerMode === "build") renderFlyerTemplate(); };
+  logoImg.src = "../favicon.png";
 
   Promise.all([
     fetch(DATA_URL + "?t=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.json(); }),
@@ -276,6 +322,7 @@
     }
     buildSenderTone();
     buildIndustryGrid();
+    buildTemplatePicker();
     bindEvents();
     document.getElementById("dataGeneratedAt").textContent = "as of " + DATA.meta.generatedAt;
     document.getElementById("footerMeta").textContent =
@@ -410,6 +457,142 @@
     document.getElementById("draftBtn").addEventListener("click", writeDraft);
     document.getElementById("geminiBtn").addEventListener("click", geminiPolish);
     document.getElementById("launchBtn").addEventListener("click", launchCampaign);
+
+    document.querySelectorAll("#flyerModeToggle .chip").forEach(function(chip){
+      chip.classList.toggle("selected", chip.getAttribute("data-flyer-mode") === state.flyerMode);
+      chip.addEventListener("click", function(){ setFlyerMode(chip.getAttribute("data-flyer-mode")); });
+    });
+    ["flyerHeadline", "flyerSubheadline", "flyerContactLine"].forEach(function(id){
+      document.getElementById(id).addEventListener("input", renderFlyerTemplate);
+    });
+  }
+
+  function setFlyerMode(mode){
+    state.flyerMode = mode;
+    document.querySelectorAll("#flyerModeToggle .chip").forEach(function(c){
+      c.classList.toggle("selected", c.getAttribute("data-flyer-mode") === mode);
+    });
+    document.getElementById("flyerUploadSection").style.display = mode === "upload" ? "block" : "none";
+    document.getElementById("flyerBuildSection").style.display = mode === "build" ? "block" : "none";
+    if (mode === "build") {
+      renderFlyerTemplate();
+    } else {
+      // switching back to upload clears any built flyer so Launch isn't left pointing at a stale image
+      state.flyerBase64 = null;
+      if (!document.getElementById("uploadZone").classList.contains("has-file")) {
+        document.getElementById("flyerImg").style.display = "none";
+        document.getElementById("noFlyerMsg").style.display = "block";
+      }
+      updateLaunchState();
+    }
+  }
+
+  var FLYER_TEMPLATES = [
+    { id: "banner", label: "Bold Banner", swatchCss: "linear-gradient(to bottom, var(--navy-deep) 0 35%, var(--white) 35% 100%)" },
+    { id: "split", label: "Split Focus", swatchCss: "linear-gradient(to right, var(--navy-deep) 0 50%, var(--white) 50% 100%)" },
+    { id: "minimal", label: "Minimal Center", swatchCss: "var(--white)" }
+  ];
+
+  function buildTemplatePicker(){
+    var wrap = document.getElementById("templatePicker");
+    wrap.innerHTML = "";
+    FLYER_TEMPLATES.forEach(function(t){
+      var card = document.createElement("div");
+      card.className = "template-card" + (t.id === state.flyerTemplate ? " selected" : "");
+      card.setAttribute("data-template", t.id);
+      card.innerHTML = "<div class=\"swatch\" style=\"background:" + t.swatchCss + "; border:1px solid var(--gray-line);\"></div>" + t.label;
+      card.addEventListener("click", function(){
+        state.flyerTemplate = t.id;
+        document.querySelectorAll(".template-card").forEach(function(c){ c.classList.toggle("selected", c.getAttribute("data-template") === t.id); });
+        renderFlyerTemplate();
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight, align){
+    if (!text) return 0;
+    var words = text.split(" ");
+    var lines = [];
+    var current = "";
+    words.forEach(function(w){
+      var test = current ? current + " " + w : w;
+      if (ctx.measureText(test).width > maxWidth && current) {
+        lines.push(current);
+        current = w;
+      } else {
+        current = test;
+      }
+    });
+    if (current) lines.push(current);
+    ctx.textAlign = align || "left";
+    lines.forEach(function(line, i){ ctx.fillText(line, x, y + i * lineHeight); });
+    return lines.length;
+  }
+
+  function renderFlyerTemplate(){
+    if (state.flyerMode !== "build") return;
+    var W = 1200, H = 1550;
+    var canvas = document.createElement("canvas");
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext("2d");
+
+    var headline = document.getElementById("flyerHeadline").value || "Custom Branded Apparel for Your Team";
+    var subheadline = document.getElementById("flyerSubheadline").value || "Uniforms, giveaways, and gear that build your brand";
+    var contact = document.getElementById("flyerContactLine").value || "embassygear.com";
+    var navyDeep = "#152840", blue = "#2f6fed", grayText = "#5b6572", white = "#ffffff";
+
+    function drawLogo(cx, cy, size){
+      if (logoLoaded) ctx.drawImage(logoImg, cx - size/2, cy - size/2, size, size);
+    }
+
+    if (state.flyerTemplate === "split") {
+      ctx.fillStyle = navyDeep; ctx.fillRect(0, 0, W/2, H);
+      ctx.fillStyle = white; ctx.fillRect(W/2, 0, W/2, H);
+      drawLogo(W/4, 260, 180);
+      ctx.fillStyle = white; ctx.font = "bold 62px Arial";
+      wrapText(ctx, headline, W/4, 480, W/2 - 100, 74, "center");
+      ctx.fillStyle = navyDeep; ctx.font = "44px Arial";
+      wrapText(ctx, subheadline, W/2 + 60, 500, W/2 - 120, 56, "left");
+      ctx.fillStyle = blue; ctx.font = "bold 34px Arial"; ctx.textAlign = "left";
+      ctx.fillText(contact, W/2 + 60, H - 80);
+    } else if (state.flyerTemplate === "minimal") {
+      ctx.fillStyle = white; ctx.fillRect(0, 0, W, H);
+      drawLogo(W/2, 220, 200);
+      ctx.fillStyle = navyDeep; ctx.font = "bold 64px Arial";
+      var hLines = wrapText(ctx, headline, W/2, 460, W - 200, 78, "center");
+      var subY = 460 + hLines * 78 + 50;
+      ctx.fillStyle = grayText; ctx.font = "38px Arial";
+      wrapText(ctx, subheadline, W/2, subY, W - 260, 50, "center");
+      ctx.strokeStyle = navyDeep; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W/2 - 120, H - 160); ctx.lineTo(W/2 + 120, H - 160); ctx.stroke();
+      ctx.fillStyle = blue; ctx.font = "bold 36px Arial"; ctx.textAlign = "center";
+      ctx.fillText(contact, W/2, H - 90);
+    } else {
+      // banner (default)
+      ctx.fillStyle = navyDeep; ctx.fillRect(0, 0, W, H * 0.32);
+      ctx.fillStyle = white; ctx.fillRect(0, H * 0.32, W, H * 0.68);
+      drawLogo(150, H * 0.16, 160);
+      ctx.fillStyle = white; ctx.font = "bold 42px Arial"; ctx.textAlign = "left";
+      ctx.fillText("EMBASSY", 250, H * 0.16 - 10);
+      ctx.fillStyle = "#7ea6f2"; ctx.font = "28px Arial";
+      ctx.fillText("PROMOTIONAL GEAR", 250, H * 0.16 + 34);
+      ctx.fillStyle = navyDeep; ctx.font = "bold 58px Arial";
+      var bLines = wrapText(ctx, headline, 100, H * 0.32 + 110, W - 200, 70, "left");
+      ctx.fillStyle = grayText; ctx.font = "36px Arial";
+      wrapText(ctx, subheadline, 100, H * 0.32 + 110 + bLines * 70 + 50, W - 200, 48, "left");
+      ctx.fillStyle = blue; ctx.fillRect(0, H - 110, W, 110);
+      ctx.fillStyle = white; ctx.font = "bold 34px Arial"; ctx.textAlign = "center";
+      ctx.fillText(contact, W/2, H - 45);
+    }
+
+    var dataUrl = canvas.toDataURL("image/png");
+    state.flyerBase64 = dataUrl.split(",")[1];
+    state.flyerFileName = "built-flyer-" + state.flyerTemplate + ".png";
+    document.getElementById("flyerImg").src = dataUrl;
+    document.getElementById("flyerImg").style.display = "block";
+    document.getElementById("noFlyerMsg").style.display = "none";
+    updateLaunchState();
   }
 
   function handlePdfUpload(file){
