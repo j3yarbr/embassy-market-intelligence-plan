@@ -1,6 +1,6 @@
 # Technical Information / Architecture / Troubleshooting
 
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Cross-cutting technical reference — deploy mechanics, known gotchas, and things that will burn real time if you don't know them going in.
 
@@ -87,6 +87,12 @@ There is **no working Python in this environment** — `python`/`python3` on PAT
 **Real gotcha, found 2026-08-27 and fixed at the root 2026-08-28**: `Get-Content $path | ConvertFrom-Csv` looks safe but isn't — `Get-Content` splits the file into lines on every raw newline *before* any CSV-quote-awareness applies, including a newline sitting inside a quoted field. Sage's `GeneralNotes`/`ContactNotes` fields and QuickBooks' auto-generated multi-line memos ("Paid via QuickBooks Payments: Payment ID ...\nCustomer paid an additional $25 convenience fee...", 25 instances in one export) both trigger this — it silently corrupts the row right after the embedded newline, misattributing or dropping that row entirely. `Clean-AcctRep` in `build_plan_data.ps1` was an earlier band-aid that just filtered out the resulting garbage values ("TRUE", stray sentence fragments) rather than fixing the misalignment itself. The real fix: `Read-CsvSkippingHeaderLines` reads the file with `Get-Content -Raw` (one string, real newlines intact), splits off just the header lines by count (safe — headers never contain embedded newlines), and feeds the rest through `ConvertFrom-Csv` as one unbroken string so its own quote-aware parser handles the rest correctly. Applied to all three CSV reads in `build_plan_data.ps1`. **Apply this pattern to any future CSV parsing in this suite** — the bug is in the `Get-Content | ConvertFrom-Csv` combination itself, not specific to any one file.
 
 This pipeline is **not automated or live** — rerun by hand whenever Matt pulls a fresh export. Each build script currently expects the source CSVs already exported to a scratch folder (update the `$scratch` variable at the top before rerunning) — not yet a single one-command pipeline from `.xlsx` to deployed `data.json`.
+
+## Plan's Update Data panel — the browser-side alternative to the PowerShell pipeline (added 2026-08-28)
+
+Plan has a second, self-service way to refresh data that skips PowerShell/Excel COM entirely: a collapsible "Update Data" panel in `site/plan/index.html` that parses an uploaded `.xlsx`/`.csv` directly in the browser via **SheetJS** (lazy-loaded from cdnjs only when the panel opens, never on a normal page visit), running a JS port of the same business logic as `build_plan_data.ps1` — same ownership cutoff, same tax-correction math, same family-rollup algorithm. Still not a live write: GitHub Pages has no backend, so it produces downloadable `data.json`/`invoices.json` files that still need a commit, same handoff as the PowerShell path.
+
+**It currently requires two separate files**, not one — genuinely two different QuickBooks reports, not an arbitrary UI choice: **Income by Customer Summary** (the audited revenue number, since gross invoice amounts include sales tax and don't tie to actual income) and **Transaction List by Customer** (invoice-level date/amount/number, needed to spread that revenue across months, count orders, and dedup by invoice number). See `PLAN.md`'s "Why the panel asks for two separate files" section for the open question this raises: Matt's real refresh cadence is a single QuickBooks report auto-scheduled into a Google Drive folder (`_Rolling Financials`) every Monday, and whether that one report actually supplies both pieces above isn't confirmed yet — worth resolving before assuming the two-file panel matches that workflow as-is.
 
 ## Auto-update banner mechanism
 
