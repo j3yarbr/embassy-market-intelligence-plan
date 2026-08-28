@@ -4,6 +4,34 @@
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Cross-cutting technical reference — deploy mechanics, known gotchas, and things that will burn real time if you don't know them going in.
 
+## Tech stack overview (read this first if you're new to the codebase)
+
+**Focus is the one module that's real Python** — `market_intelligence_engine.py`, compiled to a Windows `.exe` via PyInstaller. Pulls data with pandas, builds the map with Folium (a Python library that *generates* a JavaScript/Leaflet map as its output). Editing Focus's logic means editing Python. See `FOCUS.md`.
+
+**Everything else — Inspire, Plan, Promote, the landing page — is not Python at all.** Each is a single `.html` file containing three things stacked together, the standard way any website is built, no framework (no React, no build tool), no compiling:
+
+- **HTML** — the skeleton: what buttons, tables, and boxes exist on the page.
+- **CSS**, in a `<style>` block near the top of the file — the visual styling (the navy/blue palette, spacing, fonts). Change how something *looks*, this is what you touch.
+- **JavaScript**, in `<script>` block(s) — the actual logic. Not a thin wireframe — this is real working code: Inspire's recommendation engine, Plan's revenue rollup math and Pareto calculations, Promote's PDF rendering and hand-built MIME email construction. All of it runs live in the browser when the page loads; nothing is hidden server-side, because there is no server.
+
+Save the file, refresh the browser, see the change — that's the entire edit/test loop for these four.
+
+**The "lookups" are real and kept separate on purpose.** Things like Inspire's option lists, Plan/Promote's client data, or Promote's sender list live in their own small `.json` files, fetched by the JavaScript at page load. This split is deliberate: a business change (add a decoration method, change a sender's email) becomes a data edit, not a code edit.
+
+**PowerShell is backstage tooling, not part of the live app.** It's what pulls numbers *out* of Excel/Sage/QuickBooks exports and turns them into the `.json` files Plan and Promote read (see "Data export pipeline," below). Only touched when refreshing data from a new export, never when using the app itself.
+
+**If you want to change something yourself, concretely:**
+
+| You want to change... | You'd edit... |
+|---|---|
+| How something looks (colors, layout) | CSS, in the `<style>` block of that module's `index.html` |
+| What options/values exist (a sender, a decoration method) | The relevant `.json` data file — no code |
+| How something behaves (the logic itself) | JavaScript, in the `<script>` block of that `index.html` |
+| Focus's map generation itself | Python, `market_intelligence_engine.py` |
+| How Sage/QuickBooks data gets pulled in | PowerShell, `build_plan_data.ps1` / `build_promote_data.ps1` |
+
+All plain text, editable in anything from Notepad to VS Code — no build step for anything but Focus.
+
 ## Deploy pipeline
 
 - **Repo**: `https://github.com/j3yarbr/embassy-market-intelligence-plan`, local clone at `C:\EmbassyMapDeploy\embassy-market-intelligence-plan` (short path deliberately — the default deep temp/scratchpad paths hit "Filename too long" errors with git on Windows).
