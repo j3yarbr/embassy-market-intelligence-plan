@@ -19,9 +19,9 @@ Filters (Industry, Account Rep, month range) sit in a collapsible panel, default
 
 **Rebuilt 2026-08-28** to read one QuickBooks report instead of two. Original design used **Transaction List by Customer** (invoice-level dates/amounts) + **Income by Customer Summary** (the audited revenue total) together, because gross invoice amounts include sales tax and don't tie to real Income — a real gap, confirmed directly (one invoice: $1,005.99 gross vs. $931.68 Income). That required a tax-correction ratio and a proportional monthly-weighting estimate to reconcile the two.
 
-Matt's actual refresh cadence turned out to be a single QuickBooks report — **Sales by Customer Detail**, run for **All Dates** — already scheduled into a Google Drive folder (`_Rolling Financials`) every Monday. Reading a real copy of that file directly (2026-08-28) showed it's **line-item level** (one row per product line on an invoice or credit memo, not one row per invoice) and that its `Amount` column already ties to real Income-account postings — sales tax never posts as its own Income-type line in this report, so there's no gross-vs-Income gap to correct for. Validated against the old two-file pipeline's output: summing `Amount` for Darrow Electric matched to the penny ($2,811.25 both ways), and the whole-book total matched within 0.5% (the small remainder traced to genuinely newer transactions in the fresher file, not a parsing difference). That meant the entire tax-ratio/proportional-weighting mechanism could be **removed**, not just adapted — monthly figures are now exact dated sums.
+Matt's actual refresh cadence turned out to be a single QuickBooks report — **Sales by Customer Detail**, run for **All Dates** — already scheduled to **email him every Monday at 8:00 AM CST**; he moves the attachment into a Google Drive folder (`_Rolling Financials`) himself and archives the previous week's file. Reading a real copy of that file directly (2026-08-28) showed it's **line-item level** (one row per product line on an invoice or credit memo, not one row per invoice) and that its `Amount` column already ties to real Income-account postings — sales tax never posts as its own Income-type line in this report, so there's no gross-vs-Income gap to correct for. Validated against the old two-file pipeline's output: summing `Amount` for Darrow Electric matched to the penny ($2,811.25 both ways), and the whole-book total matched within 0.5% (the small remainder traced to genuinely newer transactions in the fresher file, not a parsing difference). That meant the entire tax-ratio/proportional-weighting mechanism could be **removed**, not just adapted — monthly figures are now exact dated sums.
 
-1. Matt's QuickBooks report **Sales by Customer Detail, All Dates** lands in Google Drive (`_Rolling Financials\Sales by Customer Detail.xlsx`) every Monday via a QuickBooks-side schedule — no manual export step for this file.
+1. Matt's QuickBooks report **Sales by Customer Detail, All Dates** emails to him every Monday 8:00 AM CST; he moves it into `_Rolling Financials\Sales by Customer Detail.xlsx` and archives the previous week's file — the one manual step left in this half of the pipeline.
 2. The Sage active-client export (`_Active Client List with Notes\ClientRpt.xlsx`) still gets converted to CSV via **Excel COM automation** in PowerShell, same as always — there is no working Python in this environment (`python`/`python3` only resolve to non-functional Windows Store stub aliases).
 3. `Phase 5 Market Intelligence - Plan\build_plan_data.ps1` reads the Sales by Customer Detail `.xlsx` **directly via Excel COM** (bulk `Value2` array read, not a CSV round-trip — sidesteps the embedded-newline class of bug below entirely, since the report's free-text `Description` column could carry the same hazard). Keeps only rows where `Transaction type` is Invoice or Credit Memo and `Account type` is Income or Other Income; line items sharing the same (customer, invoice/credit-memo number) get summed into one entry — that's the level order counts, dedup, and the invoices export all operate at.
 4. Joins to the Sage client export by exact company-name match.
@@ -31,6 +31,75 @@ Matt's actual refresh cadence turned out to be a single QuickBooks report — **
 8. Outputs `plan_data.json` → copied to `site/plan/data.json`.
 
 **A company can now genuinely disappear from the dataset on a routine refresh** — if it has zero Income/Other-Income sales rows in a given week's file, it won't appear in `clientsOut` at all (the old Income-Summary-driven pipeline would still list it at $0). This is correct behavior (no real revenue, no reason to list it), but it means the Update Data panel's dropped-customer warning (below) is worth actually reading, not just a formality.
+
+## Output schema — `data.json` and `invoices.json`
+
+Two files drive everything on the Plan hub. Both are plain JSON, no compression, fetched once on page load (`data.json`) or lazily by the Update Data panel (`invoices.json` isn't fetched on a normal visit).
+
+### `site/plan/data.json`
+
+```json
+{
+  "meta": {
+    "generatedAt": "2026-08-28 11:02",
+    "totalClients": 733,
+    "matchedClients": 621,
+    "unmatchedCount": 112,
+    "totalIncome": 4808227.87,
+    "months": ["2025-04", "2025-05", ..., "2026-08"]
+  },
+  "clients": [
+    {
+      "company": "Darrow Electric",
+      "matched": true,
+      "industry": "Trades",
+      "acctRep": null,
+      "acctReps": "",
+      "acctStatus": "Active",
+      "rating": "0",
+      "salesPotential": "1",
+      "city": "Springfield",
+      "state": "MO",
+      "lastInvoiceDate": "2026-08-25",
+      "totalIncome": 2811.25,
+      "orderCount": 11,
+      "monthly": { "2026-08": 177, "2025-09": 1303.45, "...": "..." },
+      "familyKey": null
+    }
+  ],
+  "unmatched": ["Civil War Ranch, LLC", "..."]
+}
+```
+
+**`meta`** — one summary row for the whole book. `months` is the sorted list of every `yyyy-MM` key that appears in any client's `monthly` (drives the chart's x-axis and the Year selector's bounds). `totalIncome`/`totalClients`/`matchedClients` are simple aggregates over `clients[]`, kept in `meta` so the KPI strip and footer note don't need to recompute them from the full array on every load.
+
+**`clients[]`** — one row per company, i.e. one row per QuickBooks customer name in the source file (not per family group — see `familyKey` below). Key fields, and which ones actually drive UI vs. are just carried through:
+
+| Field | Type | Actively drives the UI? | Notes |
+|---|---|---|---|
+| `company` | string | Yes — primary key everywhere | Exact QuickBooks customer name; also the join key to Sage and to `invoices.json` |
+| `matched` | boolean | Yes — "No match" badge, unmatched note, CRM filter | Whether `company` found an exact-name match in the Sage export |
+| `industry` | string\|null | Yes — CRM table's default grouping, Industry filter chips | `null` when unmatched; renders as "(Not in Sage)" |
+| `acctRep` | string\|null | Yes — Account Rep filter chips, CRM column | Sanitized (`Clean-AcctRep`/JS equivalent strips garbage values from a known Sage CSV-alignment bug) |
+| `acctReps` | string\|null | No — carried through, not rendered | Raw/unsanitized Sage value behind `acctRep`; kept for a future audit trail |
+| `acctStatus`, `rating`, `salesPotential`, `city`, `state` | string\|null | No — carried through, not rendered today | Straight from Sage; exist because the join fetches the whole `ClientRpt` row, not because the UI uses them yet |
+| `lastInvoiceDate` | string ("yyyy-MM-dd") \|null | Yes — CRM table's "Last Invoice" column | **Lifetime**, not scoped to the ownership cutoff — a $0-since-cutoff client can still show a real last-order date |
+| `totalIncome` | number | Yes — revenue everywhere (KPI strip, chart, CRM, exports) | **Post-cutoff only** (≥ 2025-04-01), exact sum of Income/Other-Income `Amount` since the 2026-08-28 rebuild — no correction factor applied |
+| `orderCount` | number | Yes — CRM column, nurture-list logic | Post-cutoff, counts distinct Invoice-type records only (Credit Memos affect `totalIncome`/`monthly` but aren't counted as an "order") |
+| `monthly` | object `{ "yyyy-MM": number }` | Yes — the entire revenue chart and monthly table | Sparse — only months with real activity are keys; a month with no `monthly` entry is treated as $0 in range calculations |
+| `familyKey` | string\|null | Yes — CRM table's rollup grouping | Set to the "root" company name when this company is part of a detected family group (e.g. `"Jack Henry"`); `null` for a standalone company. The root company's own `familyKey` equals its own `company` |
+
+**`unmatched`** — just the sorted list of `company` values where `matched` is `false`; a denormalized convenience so the "no match" summary note doesn't have to filter `clients[]` itself.
+
+### `site/plan/invoices.json`
+
+```json
+[
+  { "company": "Darrow Electric", "num": "460575", "date": "2025-10-27", "amount": 96.9 }
+]
+```
+
+Flat array, one row per (customer, invoice/credit-memo number) — post-cutoff only, already summed across any underlying line items. Not used by the normal dashboard page load; kept as a raw artifact for future per-invoice drill-down features. `amount` is signed (a Credit Memo record can be negative).
 
 ## Known, fixed-at-the-root gotcha: `Get-Content | ConvertFrom-Csv` breaks on embedded newlines
 
