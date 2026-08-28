@@ -97,6 +97,16 @@ Plan's pipeline originally followed the CSV pattern above for its financial data
 
 Both the PowerShell pipeline and the browser Update Data panel (`site/plan/index.html`) were rewritten from this same finding, in parallel, and cross-validated against each other and against a real file — see `PLAN.md`'s "Data pipeline" and "Update Data panel" sections for the full detail, including the tax-correction-ratio math this removed entirely (no longer needed: this report's `Amount` already ties to real Income-account postings, so there's no gross-vs-Income gap to correct for).
 
+**`site/plan/invoices.json` schema** — the one output of this pipeline not covered by `PLAN.md`'s main output-schema section (which covers `data.json`; see there for the full `clients[]` field table):
+
+```json
+[
+  { "company": "Darrow Electric", "num": "460575", "date": "2025-10-27", "amount": 96.9 }
+]
+```
+
+Flat array, one row per (customer, invoice/credit-memo number) — line items sharing the same number are already summed into this one entry. Post-cutoff only (≥ 2025-04-01), same `$OWNERSHIP_CUTOFF` as `data.json`. `amount` is signed: a Credit Memo record can be negative. Not fetched on a normal Plan page load — kept as a raw, invoice-level artifact (e.g. for a future per-invoice drill-down feature) rather than for any live use today; the Update Data panel used to lazy-load it for append-mode dedup, but that need went away with the single-file full-rebuild redesign above.
+
 ## Auto-update banner mechanism
 
 Every live page polls `version.json` every 60 seconds (cache-busted query param, `{cache:"no-store"}`). On a SHA mismatch from the value seen at page-load, it shows a fixed bottom banner ("A newer version of this page is available" + Refresh button) rather than silently reloading — deliberate, so an in-progress form entry (e.g. Inspire's Notes field) doesn't vanish mid-visit. To add this to a new page, copy the IIFE block from the end of `site/inspire/index.html`'s `<body>`, adjusting the relative path to `version.json` (`"version.json"` from the site root, `"../version.json"` from a subfolder).
