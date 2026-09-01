@@ -7,12 +7,13 @@ Part of the Embassy Market Intelligence Suite (see `README.md`). Plan is the "Mo
 
 ## What it is
 
-A single-page dashboard (`site/plan/index.html`) with five parts:
+A single-page dashboard (`site/plan/index.html`) with six parts:
 1. **KPI strip** — Revenue in Range, Clients with Revenue, Avg Revenue/Client, Month-to-Month Delta, YoY Change. All reactive to the filters below.
 2. **Month-to-Month Revenue chart** — single-hue bar chart, hover tooltips, plus a collapsible "Monthly figures" table with a YoY column and a click-to-expand company breakdown per month (who ordered that month vs. the same month last year).
 3. **Softgoods vs. Hardgoods** — collapsible, default closed. Revenue mix across apparel/headwear/non-apparel promotional product (all-time, last 6 months, last 90 days), a monthly trend chart, and per-segment leaders/losers by product. See its own section below.
-4. **Client Sales (CRM) table** — collapsible, default closed. Sortable, searchable, CSV-exportable. Defaults to grouping by **Industry** (ranked by revenue, expandable into companies) rather than a flat list — a toggle switches to a flat **Company** view. Includes `% of Total` and `Cumulative Total` columns (a real Pareto view when sorted by revenue). Company-family rollups (e.g. "Jack Henry" split across 3 Sage sub-accounts) group into one expandable row without merging the underlying data.
-5. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. As of 2026-09-01 this is the manual fallback path — the routine weekly refresh now runs on its own. See "Automated weekly refresh" below.
+4. **Monthly Specials Tracking** — collapsible, default closed. Live version of the one-off Specials lift analysis: for every registered special, this-month and month-after revenue against a same-year baseline, recomputed automatically on every data refresh. See its own section below.
+5. **Client Sales (CRM) table** — collapsible, default closed. Sortable, searchable, CSV-exportable. Defaults to grouping by **Industry** (ranked by revenue, expandable into companies) rather than a flat list — a toggle switches to a flat **Company** view. Includes `% of Total` and `Cumulative Total` columns (a real Pareto view when sorted by revenue). Company-family rollups (e.g. "Jack Henry" split across 3 Sage sub-accounts) group into one expandable row without merging the underlying data.
+6. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. As of 2026-09-01 this is the manual fallback path — the routine weekly refresh now runs on its own. See "Automated weekly refresh" below.
 
 Filters (Industry, Account Rep, month range) sit in a collapsible panel, default closed, live summary in the header — same standing rule as every collapsible in this suite.
 
@@ -145,9 +146,44 @@ Started as a one-off analysis (Matt asked for "a review on the sales by product 
 
 A draft manual naming key (`Phase 5 Market Intelligence - Plan\product_naming_key_DRAFT.csv`, top 150 products by revenue) was built as a first pass before Matt supplied the real catalog — now superseded by the catalog join for anything already in QuickBooks, but still useful as a place to override a name the catalog itself has wrong or unclear, if that ever comes up. Not currently joined into the pipeline.
 
-## Specials/promotions lift analysis (2026-09-01 — one-off, not a live Plan section)
+## Monthly Specials Tracking (promoted to a live Plan section 2026-09-01)
 
-Matt provided the specials he ran each month, Jan–Aug 2026 (one line per month, informal text — e.g. "June - 112PM Heather Grey/Flag Hats") plus QuickBooks' own **Product/Service List** export (`Embassy_Product_Service List.xlsx`, saved to `_scratch\productlist.xlsx` — same file the Softgoods/Hardgoods naming join uses above), and asked whether the specials showed a measurable lift in the sales data. Unlike Softgoods/Hardgoods, this was **not** built as a live `data.json`/pipeline section — it's a one-time analysis delivered as a published Artifact one-pager plus a matching one-page landscape PDF, both scoped to the fixed Jan–Aug 2026 window.
+Matt provided the specials he ran each month, Jan–Aug 2026 (one line per month, informal text — e.g. "June - 112PM Heather Grey/Flag Hats") plus QuickBooks' own **Product/Service List** export (`Embassy_Product_Service List.xlsx`, saved to `_scratch\productlist.xlsx` — same file the Softgoods/Hardgoods naming join uses above), and asked whether the specials showed a measurable lift in the sales data. It started as a one-time analysis — a published Artifact one-pager plus a matching one-page landscape PDF, both scoped to the fixed Jan–Aug 2026 window — then, same day, Matt asked to "add a tab in Plan for Monthly Specials Tracking," promoting it into a real, permanent section following the same pattern Softgoods/Hardgoods set.
+
+### Live section: how new specials get in
+
+Specials aren't derivable from the sales data itself — nothing marks a transaction as "part of a special." What ran each month lives in **`Phase 5 Market Intelligence - Plan\specials_registry.json`** (kept alongside `build_plan_data.ps1`, not in `_scratch` — it's an authored definitions file, not a periodic export, same category as the naming-key draft). Scoped this way deliberately, not as an in-page form: Matt chose "tell Claude Code each month" over building a browser form, since a form still can't save itself on GitHub Pages (same limitation as the Update Data panel — download files, hand back for a commit) and this way there's genuinely nothing new to maintain beyond what already happens every week.
+
+**Registry entry shape:**
+```json
+{ "month": "2026-06", "label": "112PM Heather Grey/Flag", "skus": ["HATS_112PM"], "note": "" }
+```
+`skus` can list more than one code (e.g. a special spanning two SKUs); an empty `skus` array marks an unresolved entry — the tab still lists it, with `note` explaining why (see March's umbrella below), so a gap stays visible rather than silently missing.
+
+**To add next month's special**: tell Claude Code what ran and which product it was. It resolves the plain description to a real SKU via the product catalog (same lookup Softgoods/Hardgoods' naming join uses) and appends an entry — the tab picks it up on the next routine pipeline run, no separate step.
+
+### Computation (`build_plan_data.ps1`, Section 6 — after Product Mix)
+
+Built on the same `$productRows` single pass Product Mix already captures (no second file read): a per-SKU monthly total (`$skuMonthly`) is built from it, then for every registry entry:
+- **Baseline** = the average of the *other* months in the **same calendar year** as the special (excluding the special's own month and the month after — same baseline for both columns, so they stay a fair comparison, same rule the original one-off analysis used).
+- **Year-scoped, not all-of-history-scoped, on purpose**: averaging across the full ~17 months of post-cutoff history was tried first and rejected — for a low-volume/seasonal product, a long tail of unrelated zero months drags the baseline toward zero and inflates every multiple (found by comparing against the original analysis's hand-validated numbers: the rain pullover's real 0.30x/32.88x came back as an inflated 0.75x/82.2x with a full-history baseline). Year-scoping reproduces the original PDF's numbers exactly for the Jan–Aug 2026 specials and extends the same "typical month this year" logic forward without a hardcoded window.
+- **Explicit "not in yet" state**: if the special's own month or the month after isn't in the data yet (e.g. Matt reports a special the same week it ran, before the next data refresh), that column shows "Not in yet" rather than treating it as a real $0 — a genuinely different case from "checked and found nothing."
+- **Auto-generated verdict tag** (no hand-writing needed for a new entry): thresholds set against the original analysis's own hand-labeled rows — 2.0x+ in both columns is "Lift both months," 2.0x+ in only one is "Same-month lift only" / "Delayed lift," under 2.0x in both is "No clear lift" (112 Hat's 1.73x/1.63x — real but "not really a spike" in the original human read — deliberately lands here, not in "lift").
+
+Output lands in `data.json`'s new top-level `specialsTracking` array — one object per registry entry:
+```json
+{
+  "month": "2026-06", "monthAfter": "2026-07", "label": "112PM Heather Grey/Flag",
+  "skus": ["HATS_112PM"], "note": "", "unresolved": false,
+  "specialVal": 8818.68, "afterVal": 395.28, "baseline": 410.76,
+  "specialKnown": true, "afterKnown": true,
+  "thisMult": 21.47, "thisIncr": 8407.92, "nextMult": 0.96, "nextIncr": -15.48,
+  "tag": "Same-month lift only"
+}
+```
+`thisMult`/`nextMult` are `null` when `baseline` is 0 (a genuinely new product — no prior sales to compare against) or when `specialKnown`/`afterKnown` is `false` (that month isn't in the data yet). The browser Update Data panel's fallback path doesn't recompute this from the freshly uploaded file — it carries forward whatever was already loaded, same accepted-gap category as that panel's product-naming fallback (see above): the panel is the manual fallback, not the routine path, and specials can't be re-derived from a sales file regardless.
+
+**Display**: a table — Month, Special (+ SKU + auto-tag), This Month, Month After — with the same "multiple + incremental $, or raw $ + 'no baseline' caption, or a bare '—' only for genuinely $0" badge logic the original one-off analysis validated (see the Display fix note below).
 
 **Resolving specials to real SKUs**: each special's plain-text description was matched against the item catalog, disambiguating ambiguous ones (visor, tumblers) by checking which candidate product(s) actually had real sales activity in that specific month — empirical, not guessed from the catalog text alone. March's umbrella special stayed genuinely unresolved: three different one-time March orders (Patriot Folding, Ridgeline 46" Arc, Compact Econo Folding, $355–$480 each) are all equally plausible and there's no way to pick one from the data alone.
 
@@ -159,7 +195,7 @@ Matt provided the specials he ran each month, Jan–Aug 2026 (one line per month
 
 **Display fix**: two rows (April's polo, May's visor) initially showed a bare "—" in whichever column had no baseline to divide by. Checked directly against the full sales history (**back to March 2024**, not just the Jan–Aug 2026 analysis window): both products have **zero sales anywhere in the entire dataset** before their one special month — genuinely new items, not just quiet ones (the one near-exception: MM1005, one of the two April-polo SKUs, has a single $29.12 sale on 2025-12-22, outside the analysis window and immaterial to the result). A bare "—" read as "no data," which was misleading — real revenue existed, there was just nothing to compute a ratio against. Fixed to show the raw dollar figure with a "no baseline" caption in that case, reserving "—" for genuinely $0 months.
 
-**Delivery**: published Artifact (`https://claude.ai/code/artifact/085e6395-3728-4dd6-aa97-427cb8266248`, kept up to date in place through both fixes) and a one-page landscape PDF, generated via headless Edge print-to-pdf against a local static file server — see TECHNICAL.md's "One-off PDF reports" section for the reusable pattern (no working Python in this environment).
+**Original one-off delivery** (kept as a point-in-time snapshot, not updated further now that the live tab exists): a published Artifact (`https://claude.ai/code/artifact/085e6395-3728-4dd6-aa97-427cb8266248`) and a one-page landscape PDF, generated via headless Edge print-to-pdf against a local static file server — see TECHNICAL.md's "One-off PDF reports" section for the reusable pattern (no working Python in this environment). Its Jan–Aug 2026 figures match the live tab's exactly (same year-scoped baseline method) — the live tab is the one that keeps moving as new months and specials are added.
 
 **Lesson for any future analysis in this suite**: when a methodology involves "check both X and Y," verify it was actually applied to every row before presenting results — not just the rows where checking Y happened to surface a finding. A second lesson from the display fix: a bare "—" is ambiguous between "no data" and "data exists but nothing to compare it to" — always distinguish those two cases explicitly in any ratio-based display.
 
