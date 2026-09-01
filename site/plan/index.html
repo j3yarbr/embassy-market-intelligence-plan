@@ -24,6 +24,9 @@
     --live-bg:#e7f6ed;
     --warn:#b3532e;
     --warn-bg:#faeae4;
+    --seg-soft:#2f6fed;
+    --seg-headwear:#1baf7a;
+    --seg-hard:#eb6834;
   }
   *{box-sizing:border-box;}
   body{
@@ -86,6 +89,47 @@
   .panel.open .panel-chevron{transform:rotate(90deg);}
   .panel-body{display:none; padding:4px 16px 16px; border-top:1px solid var(--gray-line);}
   .panel.open .panel-body{display:block;}
+
+  /* Product Mix (Softgoods / Headwear / Hardgoods) */
+  .pm-tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px;}
+  .pm-tile{background:var(--gray-bg); border:1px solid var(--gray-line); border-radius:10px; padding:12px 14px;}
+  .pm-tile-label{font-size:0.68rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--gray-text); margin-bottom:8px;}
+  .pm-tile-bar{height:8px; border-radius:4px; overflow:hidden; display:flex; background:var(--gray-line); margin-bottom:8px;}
+  .pm-tile-bar-seg{height:100%;}
+  .pm-tile-row{display:flex; align-items:center; gap:6px; font-size:0.74rem; padding:2px 0;}
+  .pm-tile-swatch{width:8px; height:8px; border-radius:2.5px; flex:0 0 auto;}
+  .pm-tile-name{color:var(--gray-text); flex:0 0 auto;}
+  .pm-tile-pct{font-weight:700; color:var(--navy-deep); margin-left:auto;}
+  .pm-tile-dollar{color:var(--gray-text); font-size:0.7rem; width:52px; text-align:right;}
+  .pm-chart-wrap{position:relative; overflow-x:auto; margin-top:16px;}
+  .pm-chart{display:flex; align-items:flex-end; gap:5px; height:200px; min-width:600px; border-bottom:1px solid var(--gray-line); padding-bottom:2px;}
+  .pm-bar-col{flex:1 1 0; display:flex; flex-direction:column; height:100%; justify-content:flex-end; min-width:20px; cursor:pointer;}
+  .pm-bar-stack{display:flex; flex-direction:column; width:100%; border-radius:4px 4px 0 0; overflow:hidden;}
+  .pm-seg{display:flex; align-items:center; justify-content:center;}
+  .pm-seg-hard{background:var(--seg-hard);}
+  .pm-seg-headwear{background:var(--seg-headwear); border-top:2px solid var(--white);}
+  .pm-seg-soft{background:var(--seg-soft); border-top:2px solid var(--white);}
+  .pm-seg-label{font-size:0.6rem; font-weight:700; color:#fff;}
+  .pm-xlabels{display:flex; gap:5px; margin-top:6px; min-width:600px;}
+  .pm-xlabel{flex:1 1 0; min-width:20px; text-align:center; font-size:0.62rem; color:var(--gray-text);}
+  .pm-legend{display:flex; gap:14px; font-size:0.74rem; color:var(--gray-text); margin-top:12px;}
+  .pm-legend-item{display:flex; align-items:center; gap:6px;}
+  .pm-legend-swatch{width:9px; height:9px; border-radius:2.5px; display:inline-block;}
+  .pm-ll-title{font-size:0.85rem; font-weight:700; color:var(--navy-deep); margin-top:22px;}
+  .pm-ll-sub{font-size:0.72rem; color:var(--gray-text); margin-top:2px; margin-bottom:12px;}
+  .pm-ll-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px;}
+  .pm-ll-col{min-width:0;}
+  .pm-ll-col-head{display:flex; align-items:center; gap:7px; font-size:0.8rem; font-weight:700; color:var(--navy-deep); margin-bottom:8px;}
+  .pm-ll-swatch{width:9px; height:9px; border-radius:2.5px; flex:0 0 auto;}
+  .pm-ll-group-label{font-size:0.64rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--gray-text); margin:8px 0 4px;}
+  .pm-ll-row{display:flex; align-items:baseline; gap:8px; font-size:0.74rem; padding:2px 0;}
+  .pm-ll-name{color:var(--gray-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0;}
+  .pm-ll-num{flex:0 0 auto; font-weight:600; color:var(--navy-deep);}
+  .pm-ll-num.down{color:var(--warn);}
+  .pm-tooltip{position:absolute; pointer-events:none; background:var(--navy-deep); color:#fff; border-radius:8px; padding:8px 10px; font-size:0.74rem; line-height:1.4; box-shadow:0 6px 20px rgba(0,0,0,0.2); opacity:0; transform:translate(-50%,-100%) translateY(-8px); transition:opacity .1s ease; white-space:nowrap; z-index:10;}
+  .pm-tooltip.visible{opacity:1;}
+  .pm-tooltip-key{width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:6px;}
+  @media (max-width:720px){ .pm-ll-grid{grid-template-columns:1fr;} .pm-tiles{grid-template-columns:1fr;} }
 
   .filter-group{margin-top:12px;}
   .filter-group:first-child{margin-top:14px;}
@@ -316,6 +360,35 @@
     </div>
   </div>
 
+  <div class="panel" id="productMixPanel">
+    <div class="panel-head" id="productMixHead">
+      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Softgoods vs. Hardgoods</div>
+      <div class="panel-summary" id="productMixSummary"></div>
+    </div>
+    <div class="panel-body">
+      <div class="section-note" style="margin-top:10px;">Revenue mix across apparel, headwear, and non-apparel promotional product. Recomputed from the same Sales by Customer Detail data as the rest of Plan, so this refreshes automatically every time the data does.</div>
+      <div class="pm-tiles" id="pmTiles"></div>
+      <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:20px;">
+        <div>
+          <div style="font-size:0.85rem; font-weight:700; color:var(--navy-deep);">Monthly mix</div>
+          <div style="font-size:0.72rem; color:var(--gray-text);">Each bar is that month's revenue, normalized to 100%</div>
+        </div>
+        <div class="pm-legend" id="pmLegend"></div>
+      </div>
+      <div class="pm-chart-wrap">
+        <div class="pm-chart" id="pmChart"></div>
+        <div class="pm-xlabels" id="pmXlabels"></div>
+        <div class="pm-tooltip" id="pmTooltip"></div>
+      </div>
+      <div class="pm-ll-title">Leaders &amp; losers by segment</div>
+      <div class="pm-ll-sub" id="pmLlSub"></div>
+      <div class="pm-ll-grid" id="pmLlGrid"></div>
+      <div class="section-note" style="margin-top:16px;">
+        <b>Softgoods</b> = Shirts, Jackets, Fleece. <b>Headwear</b> = Hats (split out on its own — at $1.01M all-time it's the #3 individual product line by revenue, ahead of Jackets and Fleece combined). <b>Hardgoods</b> = Promotional income, Bags. Excluded (not a product category): Embroidery, Shipping income, Other income, Discounts given.
+      </div>
+    </div>
+  </div>
+
   <div class="panel" id="clientTablePanel">
     <div class="panel-head" id="clientTableHead">
       <div class="panel-title"><span class="panel-chevron">&#9656;</span> Client Sales (CRM)</div>
@@ -381,7 +454,8 @@
     expandedGroups: new Set(),
     expandedIndustries: new Set(),
     expandedMonths: new Set(),
-    updateDataOpen: false
+    updateDataOpen: false,
+    productMixOpen: false
   };
   var DATA = null;
   var pendingUpdate = null; // {dataJson, invoicesJson} once Process File has run, until downloaded
@@ -416,6 +490,7 @@
     buildYearSelect();
     bindEvents();
     renderUnmatchedNote();
+    renderProductMix();
     renderAll();
 
     document.getElementById("footerMeta").textContent =
@@ -567,6 +642,10 @@
     document.getElementById("clientTableHead").addEventListener("click", function(){
       state.clientTableOpen = !state.clientTableOpen;
       document.getElementById("clientTablePanel").classList.toggle("open", state.clientTableOpen);
+    });
+    document.getElementById("productMixHead").addEventListener("click", function(){
+      state.productMixOpen = !state.productMixOpen;
+      document.getElementById("productMixPanel").classList.toggle("open", state.productMixOpen);
     });
     document.querySelector("#monthTable tbody").addEventListener("click", function(e){
       var row = e.target.closest("tr.month-row");
@@ -807,6 +886,206 @@
       '<div class="data-note"><b>Data note:</b> ' + n + ' QuickBooks customers with real revenue in this period aren\'t in the current active Sage client export (' +
       'likely inactive/lapsed accounts, or never formally added). Their revenue is included in every figure on this page — Industry and Account Rep just show blank for them. ' +
       'Use the search box or the "Sage" column below to find them.</div>';
+  }
+
+  var PM_SERIES = [
+    { key: "soft", name: "Softgoods (apparel)", cssVar: "--seg-soft", segClass: "pm-seg-soft" },
+    { key: "headwear", name: "Headwear", cssVar: "--seg-headwear", segClass: "pm-seg-headwear" },
+    { key: "hard", name: "Hardgoods", cssVar: "--seg-hard", segClass: "pm-seg-hard" }
+  ];
+
+  function pmPct(part, total){ return total > 0 ? (part / total * 100) : 0; }
+  function pmTotal3(d){ return d.soft + d.headwear + d.hard; }
+  function pmFmtShort(v){
+    if (Math.abs(v) >= 1000000) return "$" + (v/1000000).toFixed(2) + "M";
+    if (Math.abs(v) >= 1000) return "$" + Math.round(v/1000) + "K";
+    return "$" + Math.round(v);
+  }
+  function pmCleanDesc(d){ return (d || "").replace(/[\r\n]+/g, " · ").replace(/\s+/g, " ").trim(); }
+  function pmFmtDate(s){
+    var parts = s.split("-");
+    var names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return names[parseInt(parts[1],10)-1] + " " + parseInt(parts[2],10);
+  }
+
+  // Renders once at load, from DATA.productMix -- not filter-reactive (Industry/Rep/month-range filters
+  // don't apply here; this always shows the same trailing windows as the standalone one-pager it was
+  // promoted from, so the two stay comparable).
+  function renderProductMix(){
+    var panel = document.getElementById("productMixPanel");
+    var pm = DATA.productMix;
+    if (!pm) {
+      panel.style.display = "none";
+      return;
+    }
+    var allTotal = pmTotal3(pm.allTime);
+    document.getElementById("productMixSummary").textContent =
+      "Softgoods " + pmPct(pm.allTime.soft, allTotal).toFixed(0) + "% · Headwear " + pmPct(pm.allTime.headwear, allTotal).toFixed(0) +
+      "% · Hardgoods " + pmPct(pm.allTime.hard, allTotal).toFixed(0) + "%";
+
+    // Tiles
+    var tilesEl = document.getElementById("pmTiles");
+    tilesEl.innerHTML = "";
+    [
+      { label: "All-time (since Apr 2025)", d: pm.allTime },
+      { label: "Last 6 months", d: pm.last6Months },
+      { label: "Last 90 days", d: pm.last90Days }
+    ].forEach(function(t){
+      var total = pmTotal3(t.d);
+      var card = document.createElement("div");
+      card.className = "pm-tile";
+      var label = document.createElement("div");
+      label.className = "pm-tile-label";
+      label.textContent = t.label;
+      card.appendChild(label);
+      var bar = document.createElement("div");
+      bar.className = "pm-tile-bar";
+      PM_SERIES.forEach(function(s){
+        var seg = document.createElement("div");
+        seg.className = "pm-tile-bar-seg";
+        seg.style.width = pmPct(t.d[s.key], total) + "%";
+        seg.style.background = "var(" + s.cssVar + ")";
+        bar.appendChild(seg);
+      });
+      card.appendChild(bar);
+      PM_SERIES.forEach(function(s){
+        var row = document.createElement("div");
+        row.className = "pm-tile-row";
+        var sw = document.createElement("span"); sw.className = "pm-tile-swatch"; sw.style.background = "var(" + s.cssVar + ")";
+        var name = document.createElement("span"); name.className = "pm-tile-name"; name.textContent = s.name.replace(" (apparel)", "");
+        var pct = document.createElement("span"); pct.className = "pm-tile-pct"; pct.textContent = pmPct(t.d[s.key], total).toFixed(1) + "%";
+        var dollar = document.createElement("span"); dollar.className = "pm-tile-dollar"; dollar.textContent = pmFmtShort(t.d[s.key]);
+        row.appendChild(sw); row.appendChild(name); row.appendChild(pct); row.appendChild(dollar);
+        card.appendChild(row);
+      });
+      tilesEl.appendChild(card);
+    });
+
+    // Legend
+    var legendEl = document.getElementById("pmLegend");
+    legendEl.innerHTML = "";
+    PM_SERIES.forEach(function(s){
+      var item = document.createElement("span"); item.className = "pm-legend-item";
+      var sw = document.createElement("span"); sw.className = "pm-legend-swatch"; sw.style.background = "var(" + s.cssVar + ")";
+      var lbl = document.createElement("span"); lbl.textContent = s.name;
+      item.appendChild(sw); item.appendChild(lbl);
+      legendEl.appendChild(item);
+    });
+
+    // Monthly stacked chart
+    var chartEl = document.getElementById("pmChart");
+    var xlabelsEl = document.getElementById("pmXlabels");
+    var tooltipEl = document.getElementById("pmTooltip");
+    var wrapEl = document.querySelector(".pm-chart-wrap");
+    chartEl.innerHTML = ""; xlabelsEl.innerHTML = "";
+    var CHART_H = 200, MIN_LABEL_PX = 18;
+    pm.monthly.forEach(function(m){
+      var total = pmTotal3(m);
+      var col = document.createElement("div");
+      col.className = "pm-bar-col";
+      col.tabIndex = 0;
+      var stack = document.createElement("div");
+      stack.className = "pm-bar-stack";
+      stack.style.height = "100%";
+      [PM_SERIES[2], PM_SERIES[1], PM_SERIES[0]].forEach(function(s){
+        var p = pmPct(m[s.key], total);
+        var seg = document.createElement("div");
+        seg.className = "pm-seg " + s.segClass;
+        seg.style.height = p + "%";
+        if (CHART_H * (p/100) >= MIN_LABEL_PX && p >= 1) {
+          var lbl = document.createElement("span");
+          lbl.className = "pm-seg-label";
+          lbl.textContent = Math.round(p) + "%";
+          seg.appendChild(lbl);
+        }
+        stack.appendChild(seg);
+      });
+      col.appendChild(stack);
+      chartEl.appendChild(col);
+
+      var xlbl = document.createElement("div");
+      xlbl.className = "pm-xlabel";
+      xlbl.textContent = monthLabel(m.month);
+      xlabelsEl.appendChild(xlbl);
+
+      function showTip(){
+        tooltipEl.innerHTML = "";
+        var monthEl = document.createElement("div");
+        monthEl.style.fontWeight = "700"; monthEl.style.marginBottom = "4px";
+        monthEl.textContent = monthLabel(m.month);
+        tooltipEl.appendChild(monthEl);
+        PM_SERIES.forEach(function(s){
+          var p = pmPct(m[s.key], total);
+          var r = document.createElement("div");
+          r.style.display = "flex"; r.style.alignItems = "center";
+          var key = document.createElement("span"); key.className = "pm-tooltip-key"; key.style.background = "var(" + s.cssVar + ")";
+          var label = document.createElement("span"); label.textContent = s.name;
+          var val = document.createElement("span"); val.style.fontWeight = "700"; val.style.marginLeft = "auto"; val.style.paddingLeft = "10px";
+          val.textContent = fmtMoney(m[s.key]) + " (" + p.toFixed(0) + "%)";
+          r.appendChild(key); r.appendChild(label); r.appendChild(val);
+          tooltipEl.appendChild(r);
+        });
+        var wrapRect = wrapEl.getBoundingClientRect();
+        var colRect = col.getBoundingClientRect();
+        tooltipEl.style.left = (colRect.left - wrapRect.left + wrapEl.scrollLeft + colRect.width/2) + "px";
+        tooltipEl.style.top = (colRect.top - wrapRect.top) + "px";
+        tooltipEl.classList.add("visible");
+      }
+      function hideTip(){ tooltipEl.classList.remove("visible"); }
+      col.addEventListener("pointerenter", showTip);
+      col.addEventListener("pointermove", showTip);
+      col.addEventListener("pointerleave", hideTip);
+      col.addEventListener("focus", showTip);
+      col.addEventListener("blur", hideTip);
+    });
+
+    // Leaders & losers
+    var ll = pm.leadersLosers;
+    document.getElementById("pmLlSub").textContent =
+      "Last 90 days (" + pmFmtDate(ll.currentStart) + " – " + pmFmtDate(ll.currentEnd) + ") vs. the 90 days before that (" +
+      pmFmtDate(ll.priorStart) + " – " + pmFmtDate(ll.priorEnd) + ") · by product (hover a name for its SKU)";
+    var llGrid = document.getElementById("pmLlGrid");
+    llGrid.innerHTML = "";
+    PM_SERIES.forEach(function(s){
+      var col = document.createElement("div");
+      col.className = "pm-ll-col";
+      var head = document.createElement("div");
+      head.className = "pm-ll-col-head";
+      var sw = document.createElement("span"); sw.className = "pm-ll-swatch"; sw.style.background = "var(" + s.cssVar + ")";
+      var nm = document.createElement("span"); nm.textContent = s.name.replace(" (apparel)", "");
+      head.appendChild(sw); head.appendChild(nm);
+      col.appendChild(head);
+
+      function addRows(list, isLoser){
+        var groupLabel = document.createElement("div");
+        groupLabel.className = "pm-ll-group-label";
+        groupLabel.textContent = isLoser ? "Losers (biggest decline)" : "Leaders (by revenue)";
+        col.appendChild(groupLabel);
+        if (isLoser && list.length === 0) {
+          var none = document.createElement("div");
+          none.className = "pm-ll-row";
+          none.innerHTML = '<span class="pm-ll-name">No declines this period</span>';
+          col.appendChild(none);
+          return;
+        }
+        list.forEach(function(row){
+          var r = document.createElement("div");
+          r.className = "pm-ll-row";
+          var name = document.createElement("span");
+          name.className = "pm-ll-name";
+          name.textContent = pmCleanDesc(row.desc);
+          name.title = row.product + " — " + pmCleanDesc(row.desc);
+          var num = document.createElement("span");
+          num.className = "pm-ll-num" + (isLoser ? " down" : "");
+          num.textContent = isLoser ? ("−" + fmtMoney(Math.abs(row.delta))) : fmtMoney(row.current);
+          r.appendChild(name); r.appendChild(num);
+          col.appendChild(r);
+        });
+      }
+      addRows(ll[s.key].leaders, false);
+      addRows(ll[s.key].losers, true);
+      llGrid.appendChild(col);
+    });
   }
 
   function renderChart(months, filtered){
@@ -1303,13 +1582,22 @@
   function toMonthKey(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); }
   function toDateStr(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 
+  // Softgoods/Headwear/Hardgoods classification -- must stay identical to build_plan_data.ps1's arrays,
+  // or the live Plan section would disagree with a browser-side update.
+  var SOFT_ACCOUNTS = ["4050 Shirts","4040 Jackets","4020 Fleece"];
+  var HEADWEAR_ACCOUNTS = ["4030 Hats"];
+  var HARD_ACCOUNTS = ["4001 Promotional income","4000 BAGS"];
+
   // Mirrors build_plan_data.ps1 Section 1: skip the 5 header/title rows, one row per product line (not
-  // per invoice) -- Customer, Transaction date, Transaction type, Num, ... Amount (col 8), ... Account
-  // type (col 13). Only Invoice/Credit Memo rows posting to an Income-type account count as real revenue;
-  // line items are summed up to one entry per (customer, invoice/credit-memo number).
+  // per invoice) -- Customer, Transaction date, Transaction type, Num, Product/Service (col 4),
+  // Description (col 5), ... Amount (col 8), ... Account Name (col 12), Account type (col 13). Only
+  // Invoice/Credit Memo rows posting to an Income-type account count as real revenue; line items are
+  // summed up to one entry per (customer, invoice/credit-memo number). Also captures productRows (a
+  // subset, bucket-classified) for the Product Mix section -- same single pass, not a second parse.
   function parseSalesDetailRows(rows){
     var invoicesByCustomer = {};
     var lastInvoiceDateByCustomer = {};
+    var productRows = [];
     var rowCount = 0, minDate = null, maxDate = null;
     var dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
     for (var i = 5; i < rows.length; i++){
@@ -1345,8 +1633,19 @@
       if (type === "Invoice" && (!lastInvoiceDateByCustomer[customer] || d > lastInvoiceDateByCustomer[customer])) {
         lastInvoiceDateByCustomer[customer] = d;
       }
+
+      var acctName = (r[12] || "").toString().trim();
+      var bucket = null;
+      if (SOFT_ACCOUNTS.indexOf(acctName) !== -1) bucket = "soft";
+      else if (HEADWEAR_ACCOUNTS.indexOf(acctName) !== -1) bucket = "headwear";
+      else if (HARD_ACCOUNTS.indexOf(acctName) !== -1) bucket = "hard";
+      if (bucket) {
+        var prodCode = (r[4] || "").toString().trim();
+        var descText = (r[5] || "").toString().trim();
+        productRows.push({ date: d, amount: amt, bucket: bucket, product: prodCode, desc: descText, hasProduct: !!(prodCode && descText) });
+      }
     }
-    return { invoicesByCustomer: invoicesByCustomer, lastInvoiceDateByCustomer: lastInvoiceDateByCustomer, rowCount: rowCount, minDate: minDate, maxDate: maxDate };
+    return { invoicesByCustomer: invoicesByCustomer, lastInvoiceDateByCustomer: lastInvoiceDateByCustomer, productRows: productRows, rowCount: rowCount, minDate: minDate, maxDate: maxDate };
   }
 
   // Port of Is-BoundarySafePrefix / the family-rollup pass in build_plan_data.ps1 -- must stay identical
@@ -1370,6 +1669,72 @@
       }
     });
     return familyKeyByName;
+  }
+
+  // Port of build_plan_data.ps1's "Product mix" section (Get-BucketTotals + monthly + leadersLosers) --
+  // second pass over productRows now that maxDate is known, mirrors the PowerShell two-pass structure
+  // for the same reason: the leaders/losers windows are relative to the file's own max date, which isn't
+  // known until the whole file has been scanned once.
+  function computeProductMix(productRows, maxDate){
+    if (!productRows.length) return null;
+    function bucketTotals(rows, fromDate){
+      var s = 0, hw = 0, h = 0;
+      rows.forEach(function(row){
+        if (row.date < fromDate) return;
+        if (row.bucket === "soft") s += row.amount;
+        else if (row.bucket === "headwear") hw += row.amount;
+        else h += row.amount;
+      });
+      return { soft: round2(s), headwear: round2(hw), hard: round2(h) };
+    }
+
+    var monthlyMap = {};
+    productRows.forEach(function(row){
+      if (row.date < OWNERSHIP_CUTOFF) return;
+      var mk = toMonthKey(row.date);
+      if (!monthlyMap[mk]) monthlyMap[mk] = { soft: 0, headwear: 0, hard: 0 };
+      monthlyMap[mk][row.bucket] += row.amount;
+    });
+    var monthly = Object.keys(monthlyMap).sort().map(function(mk){
+      return { month: mk, soft: round2(monthlyMap[mk].soft), headwear: round2(monthlyMap[mk].headwear), hard: round2(monthlyMap[mk].hard) };
+    });
+
+    var currentStart = new Date(maxDate); currentStart.setDate(currentStart.getDate() - 89); currentStart.setHours(0,0,0,0);
+    var sixMoStart = new Date(maxDate); sixMoStart.setMonth(sixMoStart.getMonth() - 6);
+    var priorStart = new Date(currentStart); priorStart.setDate(priorStart.getDate() - 90);
+    var priorEnd = new Date(currentStart); priorEnd.setDate(priorEnd.getDate() - 1);
+
+    var leadersLosers = {};
+    ["soft","headwear","hard"].forEach(function(bucket){
+      var current = {}, prior = {}, descByProduct = {};
+      productRows.forEach(function(row){
+        if (row.bucket !== bucket || !row.hasProduct) return;
+        if (!(row.product in descByProduct)) descByProduct[row.product] = row.desc;
+        if (row.date >= currentStart) current[row.product] = (current[row.product] || 0) + row.amount;
+        else if (row.date >= priorStart && row.date <= priorEnd) prior[row.product] = (prior[row.product] || 0) + row.amount;
+      });
+      var allProducts = Object.keys(current).concat(Object.keys(prior)).filter(function(p, idx, arr){ return arr.indexOf(p) === idx; });
+      var deltas = allProducts.map(function(p){
+        var cur = round2(current[p] || 0), pri = round2(prior[p] || 0);
+        return { product: p, desc: descByProduct[p], current: cur, prior: pri, delta: round2(cur - pri) };
+      });
+      var leaders = deltas.slice().sort(function(a,b){ return b.current - a.current; }).slice(0,3);
+      var losers = deltas.filter(function(d){ return d.delta < 0; }).sort(function(a,b){ return a.delta - b.delta; }).slice(0,3);
+      leadersLosers[bucket] = { leaders: leaders, losers: losers };
+    });
+
+    return {
+      maxDate: toDateStr(maxDate),
+      monthly: monthly,
+      last90Days: bucketTotals(productRows, currentStart),
+      last6Months: bucketTotals(productRows, sixMoStart),
+      allTime: bucketTotals(productRows, OWNERSHIP_CUTOFF),
+      leadersLosers: {
+        currentStart: toDateStr(currentStart), currentEnd: toDateStr(maxDate),
+        priorStart: toDateStr(priorStart), priorEnd: toDateStr(priorEnd),
+        soft: leadersLosers.soft, headwear: leadersLosers.headwear, hard: leadersLosers.hard
+      }
+    };
   }
 
   function setUpdateStatus(msg){ document.getElementById("updateStatus").textContent = msg; }
@@ -1464,7 +1829,8 @@
         months: monthsSorted
       },
       clients: clientsOut,
-      unmatched: unmatched.sort()
+      unmatched: unmatched.sort(),
+      productMix: computeProductMix(parsed.productRows, parsed.maxDate)
     };
 
     pendingUpdate = { dataJson: JSON.stringify(out), invoicesJson: JSON.stringify(invoicesFlatOut) };
