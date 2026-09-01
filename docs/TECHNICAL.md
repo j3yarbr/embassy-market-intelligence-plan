@@ -132,7 +132,7 @@ If a flex-wrap row (e.g. Inspire's chip rows) sits inside a CSS Grid column, the
 
 Any page here that `fetch()`s a JSON file (every module's `data.json`) will silently fail under browser CORS restrictions if opened by double-clicking the HTML file directly (`file://` protocol) — it looks exactly like broken data, but isn't a code bug. **Always test via a served URL**: a local static server for quick checks, or the live Pages URL once deployed. This was the root cause behind weeks of Focus appearing broken before it was diagnosed — don't repeat it for any future module.
 
-**Local test server**: given no reliable Python on this machine (see the data-pipeline section above), the proven approach this session was a small PowerShell static file server using `System.Net.HttpListener` (no external dependency at all), wired up via `.claude/launch.json` so it launches through the standard preview tooling:
+**Local test server**: given no reliable Python on this machine (see the data-pipeline section above), the proven approach is a small PowerShell static file server using `System.Net.HttpListener` (no external dependency at all). Committed at the repo root as `static_server.ps1` (added 2026-09-01, building the Monthly Specials Tracking tab), wired up via `.claude/launch.json` so it launches through the standard preview tooling:
 
 ```json
 {
@@ -140,13 +140,13 @@ Any page here that `fetch()`s a JSON file (every module's `data.json`) will sile
   "configurations": [{
     "name": "plan-static-server",
     "runtimeExecutable": "powershell.exe",
-    "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "<path to a static_server.ps1 script>"],
+    "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "static_server.ps1"],
     "port": 8899
   }]
 }
 ```
 
-The script itself just loops on `HttpListener.GetContext()`, maps the request path to a file under `site/`, and writes the bytes back with a correct `Content-Type` by extension. Anaconda's Python (`C:\Users\Owner\anaconda3\python.exe -m http.server 8000`, run from inside `site/`) is a working alternative if available. Either way: run from a location so relative paths resolve the same way they will live.
+The script loops on `HttpListener.GetContext()`, maps the request path to a file under `site/`, and writes the bytes back with a correct `Content-Type` by extension. Anaconda's Python (`C:\Users\Owner\anaconda3\python.exe -m http.server 8000`, run from inside `site/`) is a working alternative if available. Either way: run from a location so relative paths resolve the same way they will live.
 
 ## Known gotcha: GitHub Pages deploy/CDN delay
 
