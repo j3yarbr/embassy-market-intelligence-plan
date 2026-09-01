@@ -1,6 +1,6 @@
 # Plan
 
-**Status:** 🟢 v1 live · **Last updated:** 2026-08-28
+**Status:** 🟢 v1 live · **Last updated:** 2026-09-01
 **Live URL:** https://j3yarbr.github.io/embassy-market-intelligence-plan/plan/
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Plan is the "Morning Report" — a real financial dashboard modeled on the daily report Matt used in merchandising at a previous job (Walmart), keeping the suite accountable to real numbers instead of projections. Unlocked 2026-08-26, the day Matt got QuickBooks financials access.
@@ -11,7 +11,7 @@ A single-page dashboard (`site/plan/index.html`) with four parts:
 1. **KPI strip** — Revenue in Range, Clients with Revenue, Avg Revenue/Client, Month-to-Month Delta, YoY Change. All reactive to the filters below.
 2. **Month-to-Month Revenue chart** — single-hue bar chart, hover tooltips, plus a collapsible "Monthly figures" table with a YoY column and a click-to-expand company breakdown per month (who ordered that month vs. the same month last year).
 3. **Client Sales (CRM) table** — collapsible, default closed. Sortable, searchable, CSV-exportable. Defaults to grouping by **Industry** (ranked by revenue, expandable into companies) rather than a flat list — a toggle switches to a flat **Company** view. Includes `% of Total` and `Cumulative Total` columns (a real Pareto view when sorted by revenue). Company-family rollups (e.g. "Jack Henry" split across 3 Sage sub-accounts) group into one expandable row without merging the underlying data.
-4. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. See its own section below.
+4. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. As of 2026-09-01 this is the manual fallback path — the routine weekly refresh now runs on its own. See "Automated weekly refresh" below.
 
 Filters (Industry, Account Rep, month range) sit in a collapsible panel, default closed, live summary in the header — same standing rule as every collapsible in this suite.
 
@@ -112,6 +112,19 @@ Flat array, one row per (customer, invoice/credit-memo number) — post-cutoff o
 Since the report is always "All Dates," every upload is a **full rebuild**, not an incremental merge — there's no Overwrite/Append choice to make anymore. Sage-derived fields (industry, acctRep, etc.) for companies already known are carried forward from the currently-loaded `data.json` (this flow doesn't re-upload a fresh Sage export); a genuinely new company gets `matched: false`, same as the existing unmatched-customer pattern.
 
 **This doesn't write anywhere by itself** — GitHub Pages has no backend. Processing produces a preview and two downloadable files (`data.json`, `invoices.json`) that still need to come back for a final commit, same handoff as every other data refresh in this suite. A fully-automatic version (committing straight to GitHub from the browser) was considered and explicitly not built — it would require storing a GitHub write-credential somewhere the page can use it, the same category of tradeoff as the paused Firebase/Supabase decision. See `BACKLOG.md`'s consolidated API section.
+
+**This panel is now the fallback path, not the primary one** — see "Automated weekly refresh" below for what actually runs the routine Monday update.
+
+## Automated weekly refresh (added 2026-09-01)
+
+Matt's real ask, once he saw the manual panel in action: "select a file, upload, and the financials refresh" — no browser step, no downloading two files and handing them back. Since the download-and-commit handoff exists only because a public page can't safely hold a GitHub write-credential, the fix is to have **Claude Code do the publishing itself**, using its own already-granted git access — not a credential embedded in the page.
+
+- **What runs**: `Phase 5 Market Intelligence - Plan\weekly_refresh.ps1`, on a **daily scheduled check** (Claude Code scheduled task `plan-weekly-refresh`, 9:00 AM local). It finds the newest "Sales by Customer Detail" file directly in `_Rolling Financials` (filename isn't perfectly consistent week to week — matches on the report name and takes whichever is newest, not an exact filename), compares it against a marker file (`.last_processed_sales_detail.json`) recording the last file it processed, and does nothing if unchanged.
+- **On a new file**: runs `build_plan_data.ps1` against it, then applies the **same >15% customer/revenue-drop safety check** as the browser panel, comparing against what's currently live.
+  - **Passes**: commits and pushes `data.json`/`invoices.json` straight to `main` — same branch-then-merge git workflow used throughout this repo — and the site is live within about a minute, no notification (Matt explicitly chose not to be pinged on routine success — auto-block-and-notify, not auto-publish-and-notify, 2026-09-01).
+  - **Fails**: does **not** commit or push anything, and sends Matt a push notification naming the exact numbers and file that triggered it. He's the only one running this today, and would rather be pulled in on anything that looks wrong than have bad data go live unattended.
+- **Real constraint, not hidden**: scheduled tasks run "while the app is open" — if Claude Code isn't running on Matt's machine at the scheduled time, the check simply fires the next time he opens it, not on a guaranteed cloud clock. Given he's the one physically moving the file into the Drive folder each week anyway, this hasn't been a practical problem, but it's not the same guarantee a real always-on backend would give (see `BACKLOG.md`'s consolidated API section for that longer-term direction).
+- **`$scratch` in `build_plan_data.ps1` now points at a stable folder** (`Phase 5 Market Intelligence - Plan\_scratch\`, resolved via `$PSScriptRoot`) instead of a session-specific temp path — required for this to work unattended; also just a more correct default for manual runs.
 
 **Post-upload summary** (checklist added 2026-08-28 in response to Matt testing the earlier two-file panel, then rebuilt again the same day for the single-file rewrite):
 - Headline: total customers loaded (and how many are genuinely new, never seen before), old total → new total with the dollar delta.
