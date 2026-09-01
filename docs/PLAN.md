@@ -7,11 +7,12 @@ Part of the Embassy Market Intelligence Suite (see `README.md`). Plan is the "Mo
 
 ## What it is
 
-A single-page dashboard (`site/plan/index.html`) with four parts:
+A single-page dashboard (`site/plan/index.html`) with five parts:
 1. **KPI strip** — Revenue in Range, Clients with Revenue, Avg Revenue/Client, Month-to-Month Delta, YoY Change. All reactive to the filters below.
 2. **Month-to-Month Revenue chart** — single-hue bar chart, hover tooltips, plus a collapsible "Monthly figures" table with a YoY column and a click-to-expand company breakdown per month (who ordered that month vs. the same month last year).
-3. **Client Sales (CRM) table** — collapsible, default closed. Sortable, searchable, CSV-exportable. Defaults to grouping by **Industry** (ranked by revenue, expandable into companies) rather than a flat list — a toggle switches to a flat **Company** view. Includes `% of Total` and `Cumulative Total` columns (a real Pareto view when sorted by revenue). Company-family rollups (e.g. "Jack Henry" split across 3 Sage sub-accounts) group into one expandable row without merging the underlying data.
-4. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. As of 2026-09-01 this is the manual fallback path — the routine weekly refresh now runs on its own. See "Automated weekly refresh" below.
+3. **Softgoods vs. Hardgoods** — collapsible, default closed. Revenue mix across apparel/headwear/non-apparel promotional product (all-time, last 6 months, last 90 days), a monthly trend chart, and per-segment leaders/losers by product. See its own section below.
+4. **Client Sales (CRM) table** — collapsible, default closed. Sortable, searchable, CSV-exportable. Defaults to grouping by **Industry** (ranked by revenue, expandable into companies) rather than a flat list — a toggle switches to a flat **Company** view. Includes `% of Total` and `Cumulative Total` columns (a real Pareto view when sorted by revenue). Company-family rollups (e.g. "Jack Henry" split across 3 Sage sub-accounts) group into one expandable row without merging the underlying data.
+5. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. As of 2026-09-01 this is the manual fallback path — the routine weekly refresh now runs on its own. See "Automated weekly refresh" below.
 
 Filters (Industry, Account Rep, month range) sit in a collapsible panel, default closed, live summary in the header — same standing rule as every collapsible in this suite.
 
@@ -100,6 +101,43 @@ Two files drive everything on the Plan hub. Both are plain JSON, no compression,
 ```
 
 Flat array, one row per (customer, invoice/credit-memo number) — post-cutoff only, already summed across any underlying line items. Not used by the normal dashboard page load; kept as a raw artifact for future per-invoice drill-down features. `amount` is signed (a Credit Memo record can be negative).
+
+## Softgoods vs. Hardgoods (added 2026-09-01)
+
+Started as a one-off analysis (Matt asked for "a review on the sales by product over time to give a view on the ratio of softgoods to hardgoods"), shipped first as a published one-pager artifact and a matching 1-page landscape PDF, then promoted into a real, permanent Plan section once Matt confirmed he wanted it live rather than a static report — "add a section to Plan to show this and have a new one built each time fresh data is loaded."
+
+**Classification** uses Embassy's own QuickBooks income accounts (the `Account Name` column in Sales by Customer Detail), not guessed from product codes:
+- **Softgoods** = `4050 Shirts`, `4040 Jackets`, `4020 Fleece`
+- **Headwear** = `4030 Hats` — split into its own third category, not folded into Softgoods or Hardgoods, after Matt asked whether the business was "strong enough" to track it separately: at $1.01M all-time it's the #3 individual product line by revenue (behind Shirts and the general Promotional-income bucket), bigger than Jackets and Fleece combined. Splitting it out surfaced a real finding the binary split couldn't show: headwear's share of revenue has stayed remarkably flat (~21-23%) across all-time/6-month/90-day windows, while hardgoods' growing share is coming directly out of core apparel, not headwear.
+- **Hardgoods** = `4001 Promotional income` (the general non-apparel bucket), `4000 BAGS`
+- **Excluded** (not a product category): `4010 Embroidery` (a decoration charge), `8200 Shipping income`, `8205 Other income`, `4999 Discounts given`
+
+**What it shows**: three stat tiles (all-time since the ownership cutoff, last 6 months, last 90 days — each a % + $ split across the three segments), a monthly 100%-stacked bar chart (Apr 2025 onward, with the % baked directly into each bar segment — Matt asked for this explicitly after seeing the first version without it), and a **leaders & losers by product** grid: top 3 by revenue and top 3 by biggest decline in each segment, comparing the last 90 days to the 90 days before that.
+
+**Computed alongside the main customer/invoice aggregation, not a separate read.** `build_plan_data.ps1`'s single pass over Sales by Customer Detail (Section 1) also classifies each line item into a bucket and captures it into `$productRows` when it matches; a second pass over just that (much smaller) list, once the file's true max date is known, resolves the monthly trend and the leaders/losers trailing-90-day windows — the windows can't be resolved until the whole file has been scanned once, so this genuinely needs two passes, but only the second one is over already-filtered data. Output lands in `data.json`'s new top-level `productMix` key (schema below) — same file, same generation, so this section is automatically current every time the pipeline runs, whether that's the automated weekly refresh or a manual Update Data upload. The identical logic is ported into the browser panel too (`parseSalesDetailRows`/`computeProductMix` in `index.html`) and cross-validated against the PowerShell output on a real file — they agree to the penny, including which product tops each leaders/losers list.
+
+**`data.json`'s `productMix` shape:**
+```json
+{
+  "maxDate": "2026-08-31",
+  "monthly": [{ "month": "2025-04", "soft": 75505.86, "headwear": 0, "hard": 0 }],
+  "last90Days": { "soft": 346014.52, "headwear": 157318.77, "hard": 253528.04 },
+  "last6Months": { "soft": 758978.64, "headwear": 354431.73, "hard": 515836.62 },
+  "allTime": { "soft": 2363066.92, "headwear": 1010938.47, "hard": 1094672.39 },
+  "leadersLosers": {
+    "currentStart": "2026-06-03", "currentEnd": "2026-08-31",
+    "priorStart": "2026-03-05", "priorEnd": "2026-06-02",
+    "soft": { "leaders": [{ "product": "Shirts_8000", "desc": "GILDAN 50/50 DRYBLEND S/S T-SHIRT\nBLACK-2X", "current": 24276.17, "prior": 3629.7, "delta": 20646.47 }], "losers": [] },
+    "headwear": { "leaders": [], "losers": [] },
+    "hard": { "leaders": [], "losers": [] }
+  }
+}
+```
+`leaders`/`losers` arrays are capped at 3 each. `product` is the raw QuickBooks Product/Service SKU code; `desc` is that product's Description from its first-seen row (may contain a literal `\n` — QuickBooks sometimes puts the color/size on its own line — the UI collapses it to `" · "` before display).
+
+**A real bug found building this, worth knowing before extending**: rows with a blank Description (checked directly — these turned out to be generic placeholder line items like "Sales", not real identifiable products, $259K worth in one account alone) need to be excluded from the **leaders/losers product list** but must still count toward the **segment mix totals** — that revenue is real, it's just not attributable to a named product. The first version filtered both from the same source list and understated Softgoods by ~$258K until caught by comparing against a known-good manual total. Fixed via a `hasProduct` flag on each captured row: always counted in the mix/monthly totals, only counted toward leaders/losers when `hasProduct` is true.
+
+**Known open item**: with the customer-level version of this leaderboard (an earlier iteration, kept only as a design note here since the shipped version is by-product), Matt noticed the same underlying data-quality gap from the other side — a product like the top headwear seller can be simultaneously the #1 leader *and* #1 loser at once (real signal, not a bug: still the best-seller, but declining), but the raw Description field alone doesn't give a clean, de-duplicated product name to anchor that story to (e.g., color/size variants, inconsistent word order). Matt's read: "we likely will need a table or dataset to try and share a key to improve the product description information" — i.e. a maintained SKU-to-clean-name mapping, same shape as the Sage `ClientRpt` join that already resolves company identity. Not built yet; see `BACKLOG.md`.
 
 ## Known, fixed-at-the-root gotcha: `Get-Content | ConvertFrom-Csv` breaks on embedded newlines
 
