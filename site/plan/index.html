@@ -128,6 +128,24 @@
   .pm-ll-num.down{color:var(--warn);}
   .pm-tooltip{position:absolute; pointer-events:none; background:var(--navy-deep); color:#fff; border-radius:8px; padding:8px 10px; font-size:0.74rem; line-height:1.4; box-shadow:0 6px 20px rgba(0,0,0,0.2); opacity:0; transform:translate(-50%,-100%) translateY(-8px); transition:opacity .1s ease; white-space:nowrap; z-index:10;}
   .pm-tooltip.visible{opacity:1;}
+
+  /* Monthly Specials Tracking */
+  .st-table{width:100%; border-collapse:collapse;}
+  .st-table th{text-align:left; font-size:0.66rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--gray-text); padding:6px 10px; border-bottom:1px solid var(--gray-line); white-space:nowrap;}
+  .st-table th.num{text-align:right;}
+  .st-table td{padding:10px; border-bottom:1px solid var(--gray-line); vertical-align:top; font-size:0.82rem; white-space:normal;}
+  .st-table tr:last-child td{border-bottom:none;}
+  .st-month{font-weight:700; color:var(--navy-deep); white-space:nowrap;}
+  .st-label{font-weight:600; color:var(--navy-deep);}
+  .st-skus{font-size:0.68rem; color:var(--gray-text); margin-top:2px; font-variant-numeric:tabular-nums;}
+  .st-tag{font-size:0.7rem; color:var(--gray-text); margin-top:3px;}
+  .st-unresolved-note{font-size:0.7rem; color:var(--warn); background:var(--warn-bg); border-radius:8px; padding:6px 9px; margin-top:5px; line-height:1.4;}
+  .st-badge{display:inline-block; min-width:74px; font-size:0.8rem; font-weight:700; padding:4px 9px; border-radius:8px; white-space:nowrap; text-align:center;}
+  .st-badge.up{background:var(--live-bg); color:var(--live);}
+  .st-badge.down{background:var(--warn-bg); color:var(--warn);}
+  .st-badge.flat{background:var(--gray-bg); color:var(--navy-deep); border:1px solid var(--gray-line);}
+  .st-badge.na{background:var(--gray-bg); color:var(--gray-text); font-weight:600; border:1px solid var(--gray-line);}
+  .st-badge .st-dollar{display:block; font-size:0.6rem; font-weight:600; opacity:0.85; margin-top:1px;}
   .pm-tooltip-key{width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:6px;}
   @media (max-width:720px){ .pm-ll-grid{grid-template-columns:1fr;} .pm-tiles{grid-template-columns:1fr;} }
 
@@ -389,6 +407,22 @@
     </div>
   </div>
 
+  <div class="panel" id="specialsTrackingPanel">
+    <div class="panel-head" id="specialsTrackingHead">
+      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Monthly Specials Tracking</div>
+      <div class="panel-summary" id="specialsTrackingSummary"></div>
+    </div>
+    <div class="panel-body">
+      <div class="section-note" style="margin-top:10px;">Whether each month's special shows up as real revenue — same month and the month after, each measured against the average month for that product the rest of the year (same baseline for both, so they're a fair comparison). Recomputed automatically on every data refresh. To track next month's special, tell Claude Code what ran and which product it was — it resolves the SKU and adds it here, no rebuild needed beyond the routine one.</div>
+      <div class="table-scroll">
+        <table class="st-table" id="stTable">
+          <thead><tr><th>Month</th><th>Special</th><th class="num">This Month</th><th class="num">Month After</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="panel" id="clientTablePanel">
     <div class="panel-head" id="clientTableHead">
       <div class="panel-title"><span class="panel-chevron">&#9656;</span> Client Sales (CRM)</div>
@@ -491,6 +525,7 @@
     bindEvents();
     renderUnmatchedNote();
     renderProductMix();
+    renderSpecialsTracking();
     renderAll();
 
     document.getElementById("footerMeta").textContent =
@@ -646,6 +681,10 @@
     document.getElementById("productMixHead").addEventListener("click", function(){
       state.productMixOpen = !state.productMixOpen;
       document.getElementById("productMixPanel").classList.toggle("open", state.productMixOpen);
+    });
+    document.getElementById("specialsTrackingHead").addEventListener("click", function(){
+      state.specialsTrackingOpen = !state.specialsTrackingOpen;
+      document.getElementById("specialsTrackingPanel").classList.toggle("open", state.specialsTrackingOpen);
     });
     document.querySelector("#monthTable tbody").addEventListener("click", function(e){
       var row = e.target.closest("tr.month-row");
@@ -1085,6 +1124,107 @@
       addRows(ll[s.key].leaders, false);
       addRows(ll[s.key].losers, true);
       llGrid.appendChild(col);
+    });
+  }
+
+  function stFmtSigned(v){
+    var sign = v < 0 ? "−" : "+";
+    return sign + fmtMoney(Math.abs(v));
+  }
+  // Thresholds match the ones build_plan_data.ps1 uses to pick each row's auto-generated tag.
+  function stTier(mult){
+    if (mult >= 2.0) return "up";
+    if (mult <= 0.5) return "down";
+    return "flat";
+  }
+  function stBadge(entry, isThisMonth){
+    var known = isThisMonth ? entry.specialKnown : entry.afterKnown;
+    var mult = isThisMonth ? entry.thisMult : entry.nextMult;
+    var incr = isThisMonth ? entry.thisIncr : entry.nextIncr;
+    var rawVal = isThisMonth ? entry.specialVal : entry.afterVal;
+    var span = document.createElement("span");
+    if (entry.unresolved) {
+      span.className = "st-badge na";
+      span.textContent = "—";
+      return span;
+    }
+    if (!known) {
+      span.className = "st-badge na";
+      span.textContent = "Not in yet";
+      return span;
+    }
+    if (mult !== null && mult !== undefined) {
+      span.className = "st-badge " + stTier(mult);
+      span.innerHTML = mult.toFixed(2) + "x<span class=\"st-dollar\">" + stFmtSigned(incr) + "</span>";
+    } else if (rawVal !== null && rawVal !== undefined && rawVal > 0) {
+      span.className = "st-badge na";
+      span.innerHTML = fmtMoney(rawVal) + "<span class=\"st-dollar\">no baseline</span>";
+    } else {
+      span.className = "st-badge na";
+      span.textContent = "—";
+    }
+    return span;
+  }
+
+  // Renders once at load, from DATA.specialsTracking -- not filter-reactive, same as Product Mix above.
+  // Specials themselves aren't derivable from sales data (nothing marks a transaction as "part of a
+  // special"), so the list of what ran each month lives in specials_registry.json, maintained by hand
+  // (Matt tells Claude Code the month's special, it's resolved to a real SKU and appended there) — this
+  // function only renders whatever build_plan_data.ps1 already computed against that registry.
+  function renderSpecialsTracking(){
+    var panel = document.getElementById("specialsTrackingPanel");
+    var list = DATA.specialsTracking;
+    if (!list || !list.length) { panel.style.display = "none"; return; }
+
+    var unresolvedCount = list.filter(function(s){ return s.unresolved; }).length;
+    document.getElementById("specialsTrackingSummary").textContent =
+      list.length + " special" + (list.length === 1 ? "" : "s") + " tracked" +
+      (unresolvedCount > 0 ? " · " + unresolvedCount + " unresolved" : "");
+
+    var tbody = document.querySelector("#stTable tbody");
+    tbody.innerHTML = "";
+    list.forEach(function(s){
+      var tr = document.createElement("tr");
+
+      var tdMonth = document.createElement("td");
+      tdMonth.className = "st-month";
+      tdMonth.textContent = monthLabel(s.month);
+      tr.appendChild(tdMonth);
+
+      var tdLabel = document.createElement("td");
+      var nameEl = document.createElement("div");
+      nameEl.className = "st-label";
+      nameEl.textContent = s.label;
+      tdLabel.appendChild(nameEl);
+      if (s.skus && s.skus.length) {
+        var skuEl = document.createElement("div");
+        skuEl.className = "st-skus";
+        skuEl.textContent = s.skus.join(" + ");
+        tdLabel.appendChild(skuEl);
+      }
+      var tagEl = document.createElement("div");
+      tagEl.className = "st-tag";
+      tagEl.textContent = s.tag;
+      tdLabel.appendChild(tagEl);
+      if (s.unresolved && s.note) {
+        var noteEl = document.createElement("div");
+        noteEl.className = "st-unresolved-note";
+        noteEl.textContent = s.note;
+        tdLabel.appendChild(noteEl);
+      }
+      tr.appendChild(tdLabel);
+
+      var tdThis = document.createElement("td");
+      tdThis.className = "num";
+      tdThis.appendChild(stBadge(s, true));
+      tr.appendChild(tdThis);
+
+      var tdAfter = document.createElement("td");
+      tdAfter.className = "num";
+      tdAfter.appendChild(stBadge(s, false));
+      tr.appendChild(tdAfter);
+
+      tbody.appendChild(tr);
     });
   }
 
@@ -1830,7 +1970,12 @@
       },
       clients: clientsOut,
       unmatched: unmatched.sort(),
-      productMix: computeProductMix(parsed.productRows, parsed.maxDate)
+      productMix: computeProductMix(parsed.productRows, parsed.maxDate),
+      // Not recomputed here -- specials aren't derivable from this file (see renderSpecialsTracking's
+      // comment), and this browser panel is the manual fallback path, not the routine one. Carried
+      // forward as-is from whatever was already loaded, same accepted-gap category as the browser
+      // panel's product-naming fallback (see PLAN.md's Softgoods/Hardgoods section).
+      specialsTracking: DATA.specialsTracking || []
     };
 
     pendingUpdate = { dataJson: JSON.stringify(out), invoicesJson: JSON.stringify(invoicesFlatOut) };
