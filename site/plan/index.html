@@ -1987,6 +1987,18 @@
 
     pendingUpdate = { dataJson: JSON.stringify(out), invoicesJson: JSON.stringify(invoicesFlatOut) };
 
+    // Apply the freshly computed data to the page itself, not just the summary text below -- previously
+    // this only updated `pendingUpdate` (for the download buttons), so the KPI tiles/chart/CRM table kept
+    // showing the OLD data even right after a successful process, which read as "it didn't do anything."
+    // This is a local preview only -- nothing is published anywhere yet, still needs the deploy step below
+    // (or the automated daily refresh) for anyone else to see it -- showPreviewBanner() makes that explicit.
+    DATA = out;
+    renderUnmatchedNote();
+    renderProductMix();
+    renderSpecialsTracking();
+    renderAll();
+    showPreviewBanner();
+
     // Companies that had revenue before but have zero activity in this upload -- they're about to be
     // dropped from the dataset entirely. Worth a name-by-name callout, not just a number, since a company
     // silently vanishing is exactly the kind of thing a "did this go in clean" check should catch.
@@ -2030,6 +2042,18 @@
       headline + '<ul style="margin:8px 0 0 0;padding-left:18px;">' + items.map(function(i){ return "<li>" + i + "</li>"; }).join("") + "</ul>";
     document.getElementById("updatePreview").style.display = "block";
     setUpdateStatus("");
+  }
+
+  function showPreviewBanner(){
+    if (document.getElementById("preview-banner")) return;
+    var el = document.createElement("div");
+    el.id = "preview-banner";
+    el.style.cssText = "position:fixed;left:0;right:0;bottom:0;background:#b3532e;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:center;gap:14px;font:600 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;z-index:999999;box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
+    el.innerHTML = 'Previewing your uploaded file — this page only, not published yet. ' +
+      'Send the downloaded files back for a real deploy to make it live for everyone. ' +
+      '<button id="preview-banner-btn" style="background:#fff;color:#b3532e;border:none;border-radius:8px;padding:8px 16px;font:inherit;font-weight:700;cursor:pointer;">Discard preview</button>';
+    document.body.appendChild(el);
+    document.getElementById("preview-banner-btn").addEventListener("click", function(){ location.reload(); });
   }
 
   function downloadJson(jsonString, filename){
