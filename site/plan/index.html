@@ -253,6 +253,23 @@
   .month-detail-list-title{font-weight:700; color:var(--navy-deep); margin-bottom:6px;}
   .month-detail-item{display:flex; justify-content:space-between; gap:10px; padding:2px 0; color:var(--navy-deep); font-variant-numeric:tabular-nums;}
 
+  .month-detail-actions{display:flex; justify-content:flex-end; margin-bottom:12px;}
+  .month-export-btn{background:var(--white); color:var(--blue); border:1px solid var(--blue); border-radius:8px; padding:6px 12px; font-size:0.78rem; font-weight:700; cursor:pointer;}
+  .month-export-btn:hover{background:var(--blue-soft);}
+  .month-detail-sku-item{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:3px 0; font-variant-numeric:tabular-nums;}
+  .month-detail-sku-name{color:var(--navy-deep); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0;}
+  .month-detail-sku-name .sku-code{display:block; font-size:0.68rem; color:var(--gray-text); font-weight:400;}
+  .month-detail-sku-amt{flex:0 0 auto; font-weight:600; color:var(--navy-deep);}
+  .month-winback{margin-top:20px; padding-top:16px; border-top:1px solid var(--gray-line);}
+  .month-winback-title{font-weight:700; color:var(--navy-deep); font-size:0.85rem;}
+  .month-winback-sub{font-size:0.74rem; color:var(--gray-text); margin:2px 0 10px;}
+  .month-winback-list{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:2px 24px;}
+  @media (max-width:700px){ .month-winback-list{grid-template-columns:1fr;} }
+  .month-winback-item{display:flex; justify-content:space-between; gap:10px; padding:3px 0; font-size:0.8rem; border-bottom:1px dotted var(--gray-line);}
+  .month-winback-name{color:var(--navy-deep); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0;}
+  .month-winback-name .wb-industry{display:block; font-size:0.68rem; color:var(--gray-text);}
+  .month-winback-amt{flex:0 0 auto; font-weight:600; color:var(--warn); font-variant-numeric:tabular-nums;}
+
   .data-note{font-size:0.78rem; color:var(--gray-text); padding:12px 16px; background:var(--warn-bg); border-radius:10px; margin-bottom:16px; line-height:1.5;}
   .data-note b{color:var(--warn);}
 
@@ -694,6 +711,11 @@
       document.getElementById("specialsTrackingPanel").classList.toggle("open", state.specialsTrackingOpen);
     });
     document.querySelector("#monthTable tbody").addEventListener("click", function(e){
+      var exportBtn = e.target.closest(".month-export-btn");
+      if (exportBtn) {
+        exportMonthReport(exportBtn.getAttribute("data-month"), exportBtn.getAttribute("data-prior"));
+        return;
+      }
       var row = e.target.closest("tr.month-row");
       if (!row) return;
       var mk = row.getAttribute("data-month-key");
@@ -1355,6 +1377,171 @@
     return '<div class="month-detail-list"><div class="month-detail-list-title">' + escapeHtml(title) + ' (' + list.length + ')</div>' + items + more + '</div>';
   }
 
+  // Top sellers for a given month, from DATA.skuMonthly (pre-computed in build_plan_data.ps1's pipeline
+  // -- top 15 by revenue per month, already excludes Shipping/Other-income/Discounts/Embroidery the same
+  // way Product Mix does). Not filter-reactive (Industry/Rep/date-range filters don't apply -- these are
+  // whole-company product totals for the month, same scope as Product Mix's leaders/losers).
+  function topSkusForMonth(mk, limit){
+    var list = (DATA.skuMonthly && DATA.skuMonthly[mk]) ? DATA.skuMonthly[mk] : [];
+    return list.slice(0, limit || 5);
+  }
+
+  function monthSkuListHtml(title, skus){
+    var items = skus.length
+      ? skus.map(function(s){ return '<div class="month-detail-sku-item"><span class="month-detail-sku-name">' + escapeHtml(pmCleanDesc(s.name)) + '<span class="sku-code">' + escapeHtml(s.sku) + '</span></span><span class="month-detail-sku-amt">' + fmtMoney(s.amount) + '</span></div>'; }).join("")
+      : '<div class="muted">No product-level data for this month</div>';
+    return '<div class="month-detail-list"><div class="month-detail-list-title">' + escapeHtml(title) + '</div>' + items + '</div>';
+  }
+
+  // Companies with real revenue in `pk` (same calendar month, prior year) but none in `mk` -- a real
+  // win-back list, not a guess: ranked by what they spent last year, biggest/most-winnable first.
+  function winBackForMonth(mk, pk, filteredCompanies){
+    var thisMonthNames = {};
+    companiesForMonth(mk, filteredCompanies).forEach(function(c){ thisMonthNames[c.company] = true; });
+    var priorList = companiesForMonth(pk, filteredCompanies);
+    var byCompany = {};
+    DATA.clients.forEach(function(c){ byCompany[c.company] = c; });
+    return priorList
+      .filter(function(c){ return !thisMonthNames[c.company]; })
+      .map(function(c){ return { company: c.company, amount: c.amount, industry: (byCompany[c.company] && byCompany[c.company].industry) || "" }; });
+  }
+
+  function monthWinBackHtml(mk, pk, winBack){
+    var shown = winBack.slice(0, MONTH_DETAIL_LIMIT);
+    var total = winBack.reduce(function(s,c){ return s + c.amount; }, 0);
+    var items = shown.length
+      ? shown.map(function(c){
+          return '<div class="month-winback-item"><span class="month-winback-name">' + escapeHtml(c.company) +
+            (c.industry ? '<span class="wb-industry">' + escapeHtml(c.industry) + '</span>' : '') + '</span>' +
+            '<span class="month-winback-amt">' + fmtMoney(c.amount) + '</span></div>';
+        }).join("")
+      : '<div class="muted">Every company that bought in ' + escapeHtml(monthLabel(pk)) + ' also bought in ' + escapeHtml(monthLabel(mk)) + '</div>';
+    var more = winBack.length > MONTH_DETAIL_LIMIT ? '<div class="muted" style="margin-top:6px;">+' + (winBack.length - MONTH_DETAIL_LIMIT) + ' more not shown</div>' : "";
+    return '<div class="month-winback">' +
+      '<div class="month-winback-title">Bought in ' + escapeHtml(monthLabel(pk)) + ', nothing yet in ' + escapeHtml(monthLabel(mk)) + '</div>' +
+      '<div class="month-winback-sub">' + winBack.length + ' compan' + (winBack.length===1?"y":"ies") + ', ' + fmtMoney(total) + ' in prior-year revenue at stake — ranked biggest first, a real call list.</div>' +
+      '<div class="month-winback-list">' + items + '</div>' + more +
+      '</div>';
+  }
+
+  // Exact this-year amount for one SKU, from the full (uncapped) per-month array -- used for the
+  // decline table so a SKU that fell out of the visible top-5 still gets a real number, not a guess.
+  function skuAmountInMonth(mk, sku){
+    var list = (DATA.skuMonthly && DATA.skuMonthly[mk]) ? DATA.skuMonthly[mk] : [];
+    for (var i = 0; i < list.length; i++) { if (list[i].sku === sku) return list[i].amount; }
+    return 0;
+  }
+
+  function pillTier(pct){ if (pct === null) return "na"; if (pct >= 10) return "good"; if (pct <= -30) return "bad"; return "flat"; }
+
+  // Builds the same one-page landscape report as the artifact one-pager delivered 2026-09-09, but for
+  // whatever month is expanded and computed live from whatever's currently loaded/filtered -- opens in
+  // a new tab styled for print, so "export" means the browser's own Print -> Save as PDF, no server
+  // round-trip and no re-asking Claude Code for a new file each month.
+  function buildMonthReportHtml(mk, pk){
+    var filteredCompanies = {};
+    (lastFiltered || []).forEach(function(c){ filteredCompanies[c.company] = true; });
+    var thisList = companiesForMonth(mk, filteredCompanies);
+    var priorList = companiesForMonth(pk, filteredCompanies);
+    var thisTotal = thisList.reduce(function(s,c){ return s+c.amount; }, 0);
+    var priorTotal = priorList.reduce(function(s,c){ return s+c.amount; }, 0);
+    var delta = thisTotal - priorTotal;
+    var pct = priorTotal > 0 ? Math.round(delta/priorTotal*100) : null;
+    var winBack = priorTotal > 0 ? winBackForMonth(mk, pk, filteredCompanies) : [];
+    var winBackTotal = winBack.reduce(function(s,c){ return s+c.amount; }, 0);
+    var top5This = topSkusForMonth(mk, 5);
+    var top5Prior = topSkusForMonth(pk, 5);
+    var declineRows = top5Prior.map(function(s){
+      var curVal = skuAmountInMonth(mk, s.sku);
+      var chPct = s.amount > 0 ? Math.round((curVal - s.amount)/s.amount*100) : null;
+      return { sku: s.sku, name: s.name, priorVal: s.amount, curVal: curVal, pct: chPct };
+    });
+
+    function esc(s){ var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+    function money(v){ var sign = v < 0 ? "−$" : "$"; return sign + Math.abs(Math.round(v)).toLocaleString("en-US"); }
+    function skuRow(rank, name, sku, val){
+      return "<tr><td class='rk'>" + rank + "</td><td class='nm'>" + esc(pmCleanDesc(name)) + "<span class='sk'>" + esc(sku) + "</span></td><td class='num'>" + money(val) + "</td></tr>";
+    }
+
+    var declineHtml = declineRows.length ? declineRows.map(function(r, i){
+      var pillHtml = r.pct === null ? "<span class='pill na'>—</span>" : "<span class='pill " + pillTier(r.pct) + "'>" + (r.pct>=0?"+":"") + r.pct + "%</span>";
+      return "<tr><td class='rk'>" + (i+1) + "</td><td class='nm'>" + esc(pmCleanDesc(r.name)) + "<span class='sk'>" + esc(r.sku) + "</span></td><td class='num'>" + money(r.priorVal) + "</td><td class='num'>" + money(r.curVal) + "</td><td class='num'>" + pillHtml + "</td></tr>";
+    }).join("") : "<tr><td colspan='5' class='muted'>No product data for " + esc(monthLabel(pk)) + "</td></tr>";
+
+    var thisHtml = top5This.length ? top5This.map(function(s,i){ return skuRow(i+1, s.name, s.sku, s.amount); }).join("") : "<tr><td colspan='3' class='muted'>No product data for " + esc(monthLabel(mk)) + "</td></tr>";
+
+    var wbRows = winBack.slice(0, 18).map(function(c, i){
+      return "<tr><td class='rk'>" + (i+1) + "</td><td class='nm'>" + esc(c.company) + "</td><td class='ind'>" + esc(c.industry || "—") + "</td><td class='num'>" + money(c.amount) + "</td></tr>";
+    }).join("");
+    var wbMore = winBack.length > 18 ? "<div class='wb-more'>+" + (winBack.length - 18) + " more not shown, ranked by revenue</div>" : "";
+
+    var kpiSub = pct === null ? "No " + pk.split("-")[0] + " data to compare" : (delta>=0?"▲ ":"▼ ") + money(Math.abs(delta)) + " (" + (pct>=0?"+":"") + pct + "%) vs. " + monthLabel(pk);
+    var kpiCls = pct === null ? "" : (delta >= 0 ? "good" : "bad");
+
+    return "<title>" + esc(monthLabel(mk)) + " Tactical Report</title><style>" +
+      ":root{--navy:#1f3752;--navy-deep:#152840;--blue:#2f6fed;--blue-soft:#eaf1fe;--gray-bg:#f4f6f9;--gray-line:#e2e6ec;--text:#152840;--text2:#3f4c5c;--muted:#5b6572;--good:#1f8a4c;--good-bg:#e7f6ed;--bad:#b3532e;--bad-bg:#faeae4;--flat-bg:#f1f3f6;}" +
+      "*{box-sizing:border-box;}body{margin:0;background:var(--gray-bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;}" +
+      ".root{padding:22px 26px;max-width:1180px;margin:0 auto;}.pg{display:flex;flex-direction:column;gap:14px;}" +
+      ".eyebrow{font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--blue);}" +
+      ".ttl{font-size:1.4rem;font-weight:800;color:var(--navy-deep);}" +
+      ".sub{font-size:0.84rem;color:var(--text2);max-width:820px;line-height:1.5;}" +
+      ".card{background:#fff;border:1px solid var(--gray-line);border-radius:12px;box-shadow:0 1px 3px rgba(21,40,64,0.08);}" +
+      ".kpirow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}.kpi{padding:14px 16px;}" +
+      ".kpi .lbl{font-size:0.66rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);}" +
+      ".kpi .val{font-size:1.3rem;font-weight:800;color:var(--navy-deep);margin-top:4px;font-variant-numeric:tabular-nums;}" +
+      ".kpi .subv{font-size:0.72rem;color:var(--muted);margin-top:2px;}.kpi .subv.good{color:var(--good);font-weight:700;}.kpi .subv.bad{color:var(--bad);font-weight:700;}" +
+      ".two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}.sec{padding:16px 20px 14px;}" +
+      ".sec h2{font-size:0.9rem;font-weight:700;color:var(--navy-deep);margin:0;}" +
+      ".sec .sc{font-size:0.72rem;color:var(--muted);margin:2px 0 10px;line-height:1.4;}" +
+      "table{width:100%;border-collapse:collapse;}th{text-align:left;font-size:0.62rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);padding:5px 8px;border-bottom:1px solid var(--gray-line);white-space:nowrap;}" +
+      "th.num{text-align:right;}td{padding:7px 8px;border-bottom:1px solid var(--gray-line);font-size:0.78rem;vertical-align:top;}tr:last-child td{border-bottom:none;}" +
+      ".num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}.rk{color:var(--muted);font-weight:700;width:18px;}" +
+      ".nm{max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.sk{display:block;font-size:0.64rem;color:var(--muted);margin-top:1px;}" +
+      ".ind{font-size:0.68rem;color:var(--muted);}" +
+      ".pill{display:inline-block;padding:2px 7px;border-radius:7px;font-size:0.68rem;font-weight:700;white-space:nowrap;}.pill.bad{background:var(--bad-bg);color:var(--bad);}.pill.good{background:var(--good-bg);color:var(--good);}.pill.flat{background:var(--flat-bg);color:var(--text2);}.pill.na{background:var(--flat-bg);color:var(--muted);}" +
+      ".muted{color:var(--muted);font-size:0.78rem;}" +
+      ".wb{padding:16px 20px 14px;}.wb h2{font-size:0.9rem;font-weight:700;color:var(--navy-deep);margin:0;}.wblist{display:grid;grid-template-columns:1fr;gap:0;}.wb-more{color:var(--muted);font-size:0.78rem;margin-top:4px;}.foot{color:var(--muted);font-size:0.68rem;text-align:center;}" +
+      ".printbar{display:flex;justify-content:flex-end;gap:10px;}" +
+      ".printbtn{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;}" +
+      "@media print{.printbar{display:none;}@page{size:letter landscape;margin:0.24in;}html,body{margin:0;padding:0;background:#fff;}*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;box-shadow:none !important;}" +
+      ".root{padding:1px 6px 0;}.pg{gap:3px;}.ttl{font-size:0.98rem;}.sub{font-size:0.56rem;line-height:1.2;}.eyebrow{font-size:0.5rem;}" +
+      ".kpi{padding:4px 9px;}.kpi .lbl{font-size:0.46rem;}.kpi .val{font-size:0.92rem;margin-top:1px;}.kpi .subv{font-size:0.52rem;margin-top:1px;}" +
+      ".two{gap:5px;}.sec{padding:4px 9px 4px;}.sec h2{font-size:0.62rem;}.sec .sc{font-size:0.48rem;margin:1px 0 3px;}" +
+      "th{font-size:0.44rem;padding:2px 5px;}td{font-size:0.52rem;padding:2px 5px;}.sk{font-size:0.44rem;}.pill{font-size:0.48rem;padding:1px 4px;}.ind{font-size:0.46rem;}" +
+      ".wb{padding:4px 9px 3px;}.wb h2{font-size:0.62rem;}.wb-more{font-size:0.44rem;margin-top:1px;}.foot{font-size:0.42rem;}}" +
+      "</style>" +
+      "<div class='root'><div class='pg'>" +
+      "<div class='printbar'><button class='printbtn' onclick='window.print()'>Print / Save as PDF</button></div>" +
+      "<div class='eyebrow'>Embassy Market Intelligence — Plan</div>" +
+      "<div class='ttl'>" + esc(monthLabel(mk)) + " tactical report: what to do with this month's numbers</div>" +
+      "<div class='sub'>" + esc(monthLabel(mk)) + " vs. " + esc(monthLabel(pk)) + " — same calendar month, one year apart. Built to answer three questions: what's working, what's not, and who bought last " + esc(monthLabel(pk).split(" ")[0]) + " but hasn't yet this one.</div>" +
+      "<div class='card kpirow'>" +
+      "<div class='kpi'><div class='lbl'>Revenue, " + esc(monthLabel(mk)) + "</div><div class='val'>" + money(thisTotal) + "</div><div class='subv " + kpiCls + "'>" + kpiSub + "</div></div>" +
+      "<div class='kpi'><div class='lbl'>Companies with revenue</div><div class='val'>" + thisList.length + "</div><div class='subv'>vs. " + priorList.length + " in " + esc(monthLabel(pk)) + "</div></div>" +
+      "<div class='kpi'><div class='lbl'>Bought " + esc(monthLabel(pk)) + ", not yet " + esc(monthLabel(mk)) + "</div><div class='val'>" + winBack.length + " accounts</div><div class='subv'>" + money(winBackTotal) + " in prior-year revenue at stake</div></div>" +
+      "<div class='kpi'><div class='lbl'>Top seller, " + esc(monthLabel(pk)) + "</div><div class='val'>" + (top5Prior[0] ? esc(top5Prior[0].sku) : "—") + "</div><div class='subv'>" + (top5Prior[0] ? money(top5Prior[0].amount) + " that month" : "no data") + "</div></div>" +
+      "</div>" +
+      "<div class='two'>" +
+      "<div class='card sec'><h2>📉 What's not working: " + esc(monthLabel(pk)) + "'s top sellers, this " + esc(monthLabel(mk).split(" ")[0]) + "</h2><div class='sc'>Same products, one year apart.</div>" +
+      "<table><thead><tr><th></th><th>Product</th><th class='num'>" + esc(monthLabel(pk)) + "</th><th class='num'>" + esc(monthLabel(mk)) + "</th><th class='num'>Change</th></tr></thead><tbody>" + declineHtml + "</tbody></table></div>" +
+      "<div class='card sec'><h2>🏆 What's actually selling this " + esc(monthLabel(mk).split(" ")[0]) + "</h2><div class='sc'>This month's real top 5, whether or not they were big last year.</div>" +
+      "<table><thead><tr><th></th><th>Product</th><th class='num'>" + esc(monthLabel(mk)) + "</th></tr></thead><tbody>" + thisHtml + "</tbody></table></div>" +
+      "</div>" +
+      "<div class='card wb'><h2>📞 Win-back list: bought " + esc(monthLabel(pk)) + ", nothing yet " + esc(monthLabel(mk)) + "</h2><div class='sc'>Ranked by what they spent last year — biggest, most winnable accounts first." + (winBack.length > 18 ? " " + winBack.length + " total; top 18 shown." : "") + "</div>" +
+      (wbRows ? "<table><thead><tr><th></th><th>Company</th><th>Industry</th><th class='num'>" + esc(monthLabel(pk)) + " revenue</th></tr></thead><tbody>" + wbRows + "</tbody></table>" + wbMore : "<div class='muted'>Every company that bought in " + esc(monthLabel(pk)) + " also bought in " + esc(monthLabel(mk)) + "</div>") +
+      "</div>" +
+      "<div class='foot'>Generated " + esc(new Date().toISOString().slice(0,16).replace("T"," ")) + " from live Plan data · shipping/discount/other-income lines excluded from product totals</div>" +
+      "</div></div>" +
+      "<scr" + "ipt>window.addEventListener('load',function(){ setTimeout(function(){ window.print(); }, 300); });</scr" + "ipt>";
+  }
+
+  function exportMonthReport(mk, pk){
+    var html = buildMonthReportHtml(mk, pk);
+    var blob = new Blob([html], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+
   function renderMonthTable(months, filtered){
     var filteredCompanies = {};
     filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
@@ -1389,10 +1576,17 @@
         "<td class=\"num\">" + (priorVal > 0 ? fmtMoney(priorVal) : '<span class="muted">—</span>') + "</td>" +
         "<td class=\"num\">" + yoyCell + "</td></tr>";
       if (!expanded) return row;
-      var detail = '<div class="month-detail-cols">' +
+      var winBack = priorVal > 0 ? winBackForMonth(m, pk, filteredCompanies) : [];
+      var detail = '<div class="month-detail-actions"><button class="month-export-btn" data-month="' + escapeHtml(m) + '" data-prior="' + escapeHtml(pk) + '">📄 Export one-pager</button></div>' +
+        '<div class="month-detail-cols">' +
         monthCompanyListHtml("Companies — " + monthLabel(m), companiesForMonth(m, filteredCompanies)) +
         monthCompanyListHtml("Companies — " + monthLabel(pk), companiesForMonth(pk, filteredCompanies)) +
-        '</div>';
+        '</div>' +
+        '<div class="month-detail-cols" style="margin-top:20px;">' +
+        monthSkuListHtml("Top sellers — " + monthLabel(m), topSkusForMonth(m, 5)) +
+        monthSkuListHtml("Top sellers — " + monthLabel(pk), topSkusForMonth(pk, 5)) +
+        '</div>' +
+        (priorVal > 0 ? monthWinBackHtml(m, pk, winBack) : '');
       return row + "<tr class=\"month-detail-row\"><td colspan=\"4\">" + detail + "</td></tr>";
     }).join("");
     document.getElementById("tableViewSummary").textContent = months.length + " months";
@@ -1884,6 +2078,31 @@
     };
   }
 
+  // JS port of build_plan_data.ps1's skuMonthly section -- unlike specialsTracking (needs the external
+  // registry file), this is fully derivable from productRows alone, so it's computed here rather than
+  // just carried forward stale. One real gap vs. the PowerShell version: no item-catalog access in the
+  // browser, so names fall back to the transaction-line Description (same accepted gap Product Mix's
+  // leaders/losers already has) instead of the clean QuickBooks catalog name.
+  function computeSkuMonthly(productRows){
+    var byMonth = {};
+    productRows.forEach(function(row){
+      if (!row.hasProduct) return;
+      if (row.date < OWNERSHIP_CUTOFF) return;
+      var mk = toMonthKey(row.date);
+      if (!byMonth[mk]) byMonth[mk] = {};
+      if (!byMonth[mk][row.product]) byMonth[mk][row.product] = { sku: row.product, name: row.desc, amount: 0 };
+      byMonth[mk][row.product].amount += row.amount;
+    });
+    var out = {};
+    Object.keys(byMonth).forEach(function(mk){
+      out[mk] = Object.keys(byMonth[mk]).map(function(sku){
+        var e = byMonth[mk][sku];
+        return { sku: e.sku, name: e.name, amount: round2(e.amount) };
+      }).sort(function(a,b){ return b.amount - a.amount; });
+    });
+    return out;
+  }
+
   function setUpdateStatus(msg){ document.getElementById("updateStatus").textContent = msg; }
 
   function fmtDateShort(d){
@@ -1978,6 +2197,7 @@
       clients: clientsOut,
       unmatched: unmatched.sort(),
       productMix: computeProductMix(parsed.productRows, parsed.maxDate),
+      skuMonthly: computeSkuMonthly(parsed.productRows),
       // Not recomputed here -- specials aren't derivable from this file (see renderSpecialsTracking's
       // comment), and this browser panel is the manual fallback path, not the routine one. Carried
       // forward as-is from whatever was already loaded, same accepted-gap category as the browser
