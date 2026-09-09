@@ -213,6 +213,8 @@ Since the report is always "All Dates," every upload is a **full rebuild**, not 
 
 **This panel is now the fallback path, not the primary one** — see "Automated weekly refresh" below for what actually runs the routine Monday update.
 
+**A real UX gap, found and fixed 2026-09-09**: the panel's own copy never actually said any of this — it just walked through "upload → download a JSON → send it back," reading like the only option. Matt found the panel, used it as expected, and asked directly why he had to download files manually instead of the site just updating. Fixed with an in-panel callout above the file picker (`.data-note` styling, same warm-tint treatment as the unmatched-customers note) pointing to the automated path first, explaining this one is a fallback, and only then walking through why it can't publish on its own. **General lesson**: a feature being *documented* as a fallback in `PLAN.md`/memory doesn't mean the person using the actual page knows that — the page itself has to say so, especially for a panel that's still the most prominent, easiest-to-find "update the data" affordance on the page.
+
 ## Automated weekly refresh (added 2026-09-01)
 
 Matt's real ask, once he saw the manual panel in action: "select a file, upload, and the financials refresh" — no browser step, no downloading two files and handing them back. Since the download-and-commit handoff exists only because a public page can't safely hold a GitHub write-credential, the fix is to have **Claude Code do the publishing itself**, using its own already-granted git access — not a credential embedded in the page.
