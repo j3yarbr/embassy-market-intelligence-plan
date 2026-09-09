@@ -324,12 +324,19 @@
       <div class="panel-summary">Upload a fresh QuickBooks export</div>
     </div>
     <div class="panel-body">
+      <div class="data-note" style="margin-top:10px;">
+        <b>You shouldn't need this for the routine weekly update.</b> Dropping the file into
+        <code>_Rolling Financials</code> like usual is enough — Claude Code checks that folder itself
+        (daily, automatically) and deploys the refresh on its own, no download or upload required. Use
+        this panel only if that hasn't happened yet and you want the site current right away, or if
+        Claude Code isn't available to run it for you.
+      </div>
       <div class="section-note" style="margin-top:10px;">
-        Parsed entirely in your browser — the file never leaves your machine. This prepares an updated
-        data file for you to send back for a final deploy, same as every other data refresh so far.
-        One file, one report: <b>Sales by Customer Detail</b>, run for <b>All Dates</b> — the same report
-        already scheduled into your <code>_Rolling Financials</code> Drive folder every Monday. Since that
-        report is a full history each time, every upload here is a full rebuild, not an incremental add.
+        Parsed entirely in your browser — the file never leaves your machine. Since GitHub Pages has no
+        backend, a browser page can't publish on its own — this prepares an updated data file for you to
+        send back for a final deploy, the same limitation the automatic path above was built to avoid.
+        One file, one report: <b>Sales by Customer Detail</b>, run for <b>All Dates</b>. Since that report
+        is a full history each time, every upload here is a full rebuild, not an incremental add.
       </div>
       <div class="filter-group" style="margin-top:16px;">
         <div class="filter-group-label">Sales by Customer Detail — All Dates (.xlsx or .csv)</div>
