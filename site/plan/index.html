@@ -180,6 +180,7 @@
   .chart-legend span{display:inline-flex; align-items:center; gap:5px;}
   .legend-swatch{width:12px; height:8px; border-radius:2px; display:inline-block;}
   .legend-tick{background:none; border-top:2px dashed var(--navy); width:14px; height:0;}
+  .legend-trend{background:none; border-top:2px dashed var(--warn); width:14px; height:0;}
   .legend-mom{font-weight:700; font-size:0.76rem;}
   .mom-up-text{color:var(--live);}
   .mom-down-text{color:var(--warn);}
@@ -197,6 +198,31 @@
   .mom-label.mom-up{fill:var(--live);}
   .mom-label.mom-down{fill:var(--warn);}
   .yoy-tick{stroke:var(--navy); stroke-width:2; stroke-dasharray:2,1.5;}
+  .trend-line{fill:none; stroke:var(--warn); stroke-width:2; stroke-dasharray:5,3; opacity:0.85; pointer-events:none;}
+
+  .chart-expand-btn{
+    position:absolute; top:10px; right:10px; z-index:3;
+    width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+    background:var(--white); border:1px solid var(--gray-line); border-radius:7px;
+    color:var(--gray-text); font-size:15px; cursor:pointer; line-height:1;
+  }
+  .chart-expand-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue);}
+  .chart-modal{
+    display:none; position:fixed; inset:0; z-index:1000;
+    background:rgba(21,40,64,0.55); align-items:center; justify-content:center; padding:24px;
+  }
+  .chart-modal.open{display:flex;}
+  .chart-modal-inner{
+    background:var(--white); border-radius:14px; padding:20px 24px; width:100%; max-width:1180px;
+    max-height:92vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .chart-modal-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:4px;}
+  .chart-close-btn{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--gray-line); background:var(--white);
+    color:var(--gray-text); font-size:20px; line-height:1; cursor:pointer;
+  }
+  .chart-close-btn:hover{background:var(--warn-bg); color:var(--warn); border-color:var(--warn);}
+  .chart-wrap-expanded .chart-svg{height:60vh; min-height:320px;}
 
   /* Table */
   .table-card{background:var(--white); border:1px solid var(--gray-line); border-radius:10px; overflow:hidden; margin-bottom:16px;}
@@ -377,19 +403,36 @@
     <div class="section-title" style="margin-bottom:0;" id="chartSectionTitle">Month-to-Month Revenue</div>
     <div class="chip-row" id="chartGranularityToggle" style="margin-bottom:10px;">
       <div class="chip" data-granularity="monthly">Monthly</div>
+      <div class="chip" data-granularity="weekly">Weekly</div>
       <div class="chip" data-granularity="daily">Daily</div>
     </div>
   </div>
   <div class="section-note" id="chartSectionNote">Reacts to the filters above. Hover a bar for exact figures, including the year-over-year comparison.</div>
-  <div class="chart-card">
+  <div class="chart-card" style="position:relative;">
+    <button class="chart-expand-btn" id="chartExpandBtn" title="Expand chart" aria-label="Expand chart">&#10530;</button>
     <div class="chart-legend" id="chartLegend">
       <span><span class="legend-swatch" style="background:var(--blue);"></span>Revenue</span>
       <span><span class="legend-swatch legend-tick"></span>Same month last year</span>
+      <span><span class="legend-swatch legend-trend"></span>Trend</span>
       <span><span class="legend-mom mom-up-text">▲12%</span> / <span class="legend-mom mom-down-text">▼8%</span> month-over-month, above each bar</span>
     </div>
     <div class="chart-wrap">
       <svg class="chart-svg" id="chartSvg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
       <div class="chart-tooltip" id="chartTooltip"></div>
+    </div>
+  </div>
+
+  <div class="chart-modal" id="chartModal">
+    <div class="chart-modal-inner">
+      <div class="chart-modal-head">
+        <div class="section-title" style="margin:0;" id="chartModalTitle">Month-to-Month Revenue</div>
+        <button class="chart-close-btn" id="chartCloseBtn" aria-label="Close">&times;</button>
+      </div>
+      <div class="chart-legend" id="chartModalLegend"></div>
+      <div class="chart-wrap chart-wrap-expanded">
+        <svg class="chart-svg" id="chartSvgExpanded" viewBox="0 0 1000 420" preserveAspectRatio="none"></svg>
+        <div class="chart-tooltip" id="chartTooltipExpanded"></div>
+      </div>
     </div>
   </div>
 
@@ -402,7 +445,7 @@
       <div class="table-toolbar" style="padding-left:0; padding-right:0; justify-content:flex-end;">
         <button class="clear-btn" id="exportMonthlyBtn" style="margin-top:0;">Export CSV</button>
       </div>
-      <div class="section-note" id="dailyParetoNote" style="display:none; margin-top:0;">Every day in the selected range, ranked by revenue — same concept as the Client Sales Pareto view below, applied to days instead of companies. Shows how concentrated revenue is: a few big days vs. spread evenly.</div>
+      <div class="section-note" id="paretoNote" style="display:none; margin-top:0;"></div>
       <div class="table-scroll">
         <table id="monthTable"><thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">Same Month Last Year</th><th class="num">YoY Δ</th></tr></thead><tbody></tbody></table>
       </div>
@@ -730,7 +773,7 @@
       if (!row) return;
       var mk = row.getAttribute("data-month-key");
       if (state.expandedMonths.has(mk)) state.expandedMonths.delete(mk); else state.expandedMonths.add(mk);
-      renderMonthOrDailyTable(monthsInRange(), lastFiltered);
+      renderTableByGranularity(monthsInRange(), lastFiltered);
     });
     document.getElementById("clearFiltersBtn").addEventListener("click", function(e){
       e.stopPropagation();
@@ -772,7 +815,7 @@
     });
     document.getElementById("exportClientsBtn").addEventListener("click", exportClientsCsv);
     document.getElementById("exportMonthlyBtn").addEventListener("click", function(){
-      if (state.revenueGranularity === "daily") exportDailyCsv(monthsInRange(), lastFiltered);
+      if (state.revenueGranularity === "daily" || state.revenueGranularity === "weekly") exportPeriodCsv(monthsInRange(), lastFiltered, state.revenueGranularity);
       else exportMonthlyCsv();
     });
     document.querySelectorAll("#chartGranularityToggle .chip").forEach(function(chip){
@@ -782,9 +825,18 @@
         document.querySelectorAll("#chartGranularityToggle .chip").forEach(function(c){
           c.classList.toggle("selected", c.getAttribute("data-granularity") === state.revenueGranularity);
         });
-        renderChartOrDaily(monthsInRange(), lastFiltered);
-        renderMonthOrDailyTable(monthsInRange(), lastFiltered);
+        renderChartByGranularity(monthsInRange(), lastFiltered);
+        renderTableByGranularity(monthsInRange(), lastFiltered);
+        if (document.getElementById("chartModal").classList.contains("open")) openChartModal();
       });
+    });
+    document.getElementById("chartExpandBtn").addEventListener("click", openChartModal);
+    document.getElementById("chartCloseBtn").addEventListener("click", closeChartModal);
+    document.getElementById("chartModal").addEventListener("click", function(e){
+      if (e.target.id === "chartModal") closeChartModal();
+    });
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape" && document.getElementById("chartModal").classList.contains("open")) closeChartModal();
     });
     document.querySelectorAll("#groupByToggle .chip").forEach(function(chip){
       chip.classList.toggle("selected", chip.getAttribute("data-group-by") === state.groupBy);
@@ -883,8 +935,8 @@
 
     renderFilterSummary(months);
     renderKpis(filtered, months);
-    renderChartOrDaily(months, filtered);
-    renderMonthOrDailyTable(months, filtered);
+    renderChartByGranularity(months, filtered);
+    renderTableByGranularity(months, filtered);
     renderClientTable(filtered);
   }
 
@@ -1281,9 +1333,39 @@
     });
   }
 
-  function renderChart(months, filtered){
-    var svg = document.getElementById("chartSvg");
-    var tooltip = document.getElementById("chartTooltip");
+  // Simple least-squares linear regression over bucket index (0..n-1) -> value. Used to draw a trend
+  // line on every chart granularity (monthly/weekly/daily) -- same y-axis/scale as the bars themselves,
+  // not a second axis, so this doesn't run into the dual-axis anti-pattern a real Pareto chart would.
+  function linearRegression(values){
+    var n = values.length;
+    if (n < 2) return null;
+    var sumX=0,sumY=0,sumXY=0,sumXX=0;
+    for (var i=0;i<n;i++){ sumX+=i; sumY+=values[i]; sumXY+=i*values[i]; sumXX+=i*i; }
+    var denom = n*sumXX - sumX*sumX;
+    if (denom === 0) return null;
+    var slope = (n*sumXY - sumX*sumY) / denom;
+    var intercept = (sumY - slope*sumX) / n;
+    return { slope: slope, intercept: intercept };
+  }
+
+  function trendLineSvg(values, padL, padT, chartW, chartH, maxVal){
+    var n = values.length;
+    var reg = linearRegression(values);
+    if (!reg || maxVal <= 0 || n < 2) return "";
+    function yFor(v){
+      var y = padT + chartH - (v / maxVal) * chartH;
+      return Math.max(padT, Math.min(padT + chartH, y));
+    }
+    var x0 = padL + (chartW/n) * 0.5;
+    var x1 = padL + (chartW/n) * (n - 0.5);
+    var y0 = yFor(reg.intercept);
+    var y1 = yFor(reg.slope * (n-1) + reg.intercept);
+    return '<line class="trend-line" x1="' + x0.toFixed(1) + '" y1="' + y0.toFixed(1) + '" x2="' + x1.toFixed(1) + '" y2="' + y1.toFixed(1) + '"></line>';
+  }
+
+  function renderChart(months, filtered, svgEl, tooltipEl){
+    var svg = svgEl || document.getElementById("chartSvg");
+    var tooltip = tooltipEl || document.getElementById("chartTooltip");
     var byMonth = {};
     months.forEach(function(m){ byMonth[m] = 0; });
     var filteredCompanies = {};
@@ -1307,7 +1389,8 @@
       priorYearByMonth[m] = sum;
     });
 
-    var W = 1000, H = 220, padL = 4, padR = 4, padB = 22, padT = 26;
+    var svgH = parseFloat(svg.getAttribute("viewBox").split(" ")[3]) || 220;
+    var W = 1000, H = svgH, padL = 4, padR = 4, padB = 22, padT = 26;
     var chartW = W - padL - padR, chartH = H - padT - padB;
     var n = months.length || 1;
     var gap = 2;
@@ -1356,6 +1439,7 @@
         svgParts.push('<text class="axis-label" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + monthLabel(m) + '</text>');
       }
     });
+    svgParts.push(trendLineSvg(months.map(function(m){ return byMonth[m]; }), padL, padT, chartW, chartH, maxVal));
     svg.innerHTML = svgParts.join("");
 
     svg.querySelectorAll(".bar").forEach(function(bar){
@@ -1568,11 +1652,18 @@
 
   // Dispatches to the existing monthly YoY table or the new Daily Pareto view, based on the toggle.
   // Both write into the same #monthTable/#tableViewSummary elements -- only one is ever shown at a time.
-  function renderMonthOrDailyTable(months, filtered){
+  function renderTableByGranularity(months, filtered){
+    var noteEl = document.getElementById("paretoNote");
     if (state.revenueGranularity === "daily") {
-      renderDailyPareto(months, filtered);
+      noteEl.style.display = "block";
+      noteEl.textContent = "Every day in the selected range, ranked by revenue — same concept as the Client Sales Pareto view below, applied to days instead of companies. Shows how concentrated revenue is: a few big days vs. spread evenly.";
+      renderPeriodPareto(months, filtered, "daily");
+    } else if (state.revenueGranularity === "weekly") {
+      noteEl.style.display = "block";
+      noteEl.textContent = "Every week in the selected range, ranked by revenue — same concept as the Client Sales Pareto view below, applied to weeks instead of companies.";
+      renderPeriodPareto(months, filtered, "weekly");
     } else {
-      document.getElementById("dailyParetoNote").style.display = "none";
+      noteEl.style.display = "none";
       document.querySelector("#monthTable thead").innerHTML =
         "<tr><th>Month</th><th class=\"num\">Revenue</th><th class=\"num\">Same Month Last Year</th><th class=\"num\">YoY Δ</th></tr>";
       renderMonthTable(months, filtered);
@@ -1594,119 +1685,146 @@
 
   var DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-  // Shared by the daily chart (chronological) and the daily Pareto table (re-sorted by revenue) --
-  // one fetch/aggregation, not duplicated. Uses invoices.json (real per-invoice dates) since data.json's
-  // `monthly` field is only month-granularity -- fetched lazily, only once, only when a daily view is
-  // first opened, so a normal page load never pays for it. Returns rows in ascending date order.
-  function getDailyRows(months, filtered){
+  // Monday of the ISO week containing `dateStr` ("yyyy-MM-dd"), as a "yyyy-MM-dd" string -- the bucket
+  // key for weekly rows. Standard Monday-start business week, not the Sunday-start DOW_NAMES ordering
+  // above (that's just for display, e.g. "(Mon)" next to a daily date).
+  function weekStartKey(dateStr){
+    var d = new Date(dateStr + "T00:00:00");
+    var day = d.getDay();
+    var diff = (day === 0) ? 6 : day - 1;
+    d.setDate(d.getDate() - diff);
+    return d.toISOString().slice(0,10);
+  }
+
+  // Shared by the daily/weekly charts (chronological) and the daily/weekly Pareto tables (re-sorted by
+  // revenue) -- one fetch/aggregation per period type, not duplicated per view. Uses invoices.json (real
+  // per-invoice dates) since data.json's `monthly` field is only month-granularity -- fetched lazily,
+  // only once total (shared cache), only when a daily or weekly view is first opened. Returns rows in
+  // ascending order (by day, or by week-start).
+  function getPeriodRows(months, filtered, period){
     var filteredCompanies = {};
     filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
     if (!months.length) return Promise.resolve({ rows: [], fromDate: null, toDate: null });
     var fromDate = months[0] + "-01";
     var toDate = months[months.length-1] + "-" + String(lastDayOfMonth(months[months.length-1])).padStart(2,"0");
     return loadInvoicesOnce().then(function(invoices){
-      var byDay = {};
+      var byKey = {};
       invoices.forEach(function(inv){
         if (!filteredCompanies[inv.company]) return;
         if (inv.date < fromDate || inv.date > toDate) return;
-        byDay[inv.date] = (byDay[inv.date] || 0) + inv.amount;
+        var key = period === "weekly" ? weekStartKey(inv.date) : inv.date;
+        byKey[key] = (byKey[key] || 0) + inv.amount;
       });
-      var rows = Object.keys(byDay).sort().map(function(d){ return { date: d, amount: round2(byDay[d]) }; });
+      var rows = Object.keys(byKey).sort().map(function(k){ return { date: k, amount: round2(byKey[k]) }; });
       return { rows: rows, fromDate: fromDate, toDate: toDate };
     });
   }
 
+  function periodDateLabel(dateStr, period){
+    var d = new Date(dateStr + "T00:00:00");
+    if (period === "weekly") return "Week of " + fmtDateShort(d);
+    var dow = DOW_NAMES[d.getDay()];
+    return fmtDateShort(d) + " (" + dow + ")";
+  }
+
   // Same concept as the Client Sales Pareto view (% of Total / Cumulative Total, ranked by revenue
-  // descending) applied to calendar days instead of companies -- shows whether revenue in the selected
-  // range is concentrated on a handful of big days or spread evenly.
-  function renderDailyPareto(months, filtered){
-    document.getElementById("dailyParetoNote").style.display = "block";
+  // descending) applied to calendar days or weeks instead of companies -- shows whether revenue in the
+  // selected range is concentrated on a handful of big periods or spread evenly.
+  function renderPeriodPareto(months, filtered, period){
     document.querySelector("#monthTable thead").innerHTML =
-      "<tr><th>Date</th><th class=\"num\">Revenue</th><th class=\"num\">% of Total</th><th class=\"num\">Cumulative</th><th class=\"num\">Cumulative %</th></tr>";
+      "<tr><th>" + (period === "weekly" ? "Week" : "Date") + "</th><th class=\"num\">Revenue</th><th class=\"num\">% of Total</th><th class=\"num\">Cumulative</th><th class=\"num\">Cumulative %</th></tr>";
     var tbody = document.querySelector("#monthTable tbody");
+    var unit = period === "weekly" ? "week" : "day";
     if (!months.length) {
       tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">No months in range</td></tr>";
-      document.getElementById("tableViewSummary").textContent = "0 days";
+      document.getElementById("tableViewSummary").textContent = "0 " + unit + "s";
       return;
     }
-    tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">Loading daily figures…</td></tr>";
+    tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">Loading " + unit + "ly figures…</td></tr>";
     var requestGranularity = state.revenueGranularity;
 
-    getDailyRows(months, filtered).then(function(result){
-      // A slower toggle-back-and-forth could resolve out of order -- only render if Daily is still selected.
+    getPeriodRows(months, filtered, period).then(function(result){
+      // A slower toggle-back-and-forth could resolve out of order -- only render if this mode is still selected.
       if (state.revenueGranularity !== requestGranularity) return;
       var rows = result.rows.slice().sort(function(a,b){ return b.amount - a.amount; });
       var total = rows.reduce(function(s,r){ return s + r.amount; }, 0);
       var running = 0;
       tbody.innerHTML = rows.length ? rows.map(function(r){
         running += r.amount;
-        var dow = DOW_NAMES[new Date(r.date + "T00:00:00").getDay()];
-        return "<tr class=\"daily-row\"><td>" + fmtDateShort(new Date(r.date + "T00:00:00")) + " <span class=\"muted\">(" + dow + ")</span></td>" +
+        return "<tr class=\"daily-row\"><td>" + periodDateLabel(r.date, period) + "</td>" +
           "<td class=\"num\">" + fmtMoney(r.amount) + "</td>" +
           "<td class=\"num\">" + fmtPct(pctOf(r.amount, total)) + "</td>" +
           "<td class=\"num\">" + fmtMoney(running) + "</td>" +
           "<td class=\"num\">" + fmtPct(pctOf(running, total)) + "</td></tr>";
       }).join("") : "<tr><td colspan=\"5\" class=\"muted\">No invoice activity in this range</td></tr>";
-      document.getElementById("tableViewSummary").textContent = rows.length + " day" + (rows.length===1?"":"s") + " with revenue";
+      document.getElementById("tableViewSummary").textContent = rows.length + " " + unit + (rows.length===1?"":"s") + " with revenue";
     }).catch(function(err){
       tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">Couldn't load invoices.json (" + escapeHtml(err.message) + ")</td></tr>";
     });
   }
 
-  function exportDailyCsv(months, filtered){
-    getDailyRows(months, filtered).then(function(result){
+  function exportPeriodCsv(months, filtered, period){
+    getPeriodRows(months, filtered, period).then(function(result){
       var rows = result.rows.slice().sort(function(a,b){ return b.amount - a.amount; });
       var total = rows.reduce(function(s,r){ return s + r.amount; }, 0);
       var running = 0;
-      var out = [["Date","Day of Week","Revenue","% of Total","Cumulative","Cumulative %"]];
+      var out = [[period === "weekly" ? "Week Of" : "Date","Revenue","% of Total","Cumulative","Cumulative %"]];
       rows.forEach(function(r){
         running += r.amount;
-        var dow = DOW_NAMES[new Date(r.date + "T00:00:00").getDay()];
-        out.push([r.date, dow, r.amount.toFixed(2), pctOf(r.amount, total).toFixed(1) + "%", running.toFixed(2), pctOf(running, total).toFixed(1) + "%"]);
+        out.push([r.date, r.amount.toFixed(2), pctOf(r.amount, total).toFixed(1) + "%", running.toFixed(2), pctOf(running, total).toFixed(1) + "%"]);
       });
-      downloadCsv("embassy-plan-daily_" + rangeSuffix() + ".csv", out);
+      downloadCsv("embassy-plan-" + period + "_" + rangeSuffix() + ".csv", out);
     });
   }
 
   // Dispatches the Month-to-Month Revenue chart between the existing monthly bar chart (chronological,
-  // with the YoY reference tick + month-over-month labels) and a daily chart (also chronological, same
-  // visual language -- just bucketed by day). Daily deliberately drops the YoY tick and MoM labels: a
-  // single day compared to the same day last year, or to the day before, is far too noisy to be a useful
-  // read (a $50 Tuesday after a $1 Monday is a meaningless "+4900%"), same reasoning already applied to
-  // the Daily Pareto table.
-  function renderChartOrDaily(months, filtered){
-    var titleEl = document.getElementById("chartSectionTitle");
+  // with the YoY reference tick + month-over-month labels) and daily/weekly charts (also chronological,
+  // same visual language -- just bucketed differently, plus a trend line). Daily/weekly deliberately drop
+  // the YoY tick and MoM labels: a single day (or even week) compared to the same period last year, or to
+  // the one before, is far too noisy to be a useful read (a $50 Tuesday after a $1 Monday is a meaningless
+  // "+4900%"), same reasoning already applied to the Pareto tables. `target` lets the same function drive
+  // either the inline chart (default) or the expanded modal's chart, by element id suffix.
+  function renderChartByGranularity(months, filtered, target){
+    var suffix = target === "expanded" ? "Expanded" : "";
+    var svgEl = document.getElementById("chartSvg" + suffix);
+    var tooltipEl = document.getElementById("chartTooltip" + suffix);
+    var titleEl = document.getElementById(target === "expanded" ? "chartModalTitle" : "chartSectionTitle");
     var noteEl = document.getElementById("chartSectionNote");
-    var legendEl = document.getElementById("chartLegend");
+    var legendEl = document.getElementById(target === "expanded" ? "chartModalLegend" : "chartLegend");
     var tableTitleEl = document.getElementById("tableViewTitle");
-    if (state.revenueGranularity === "daily") {
-      titleEl.textContent = "Day-to-Day Revenue";
-      noteEl.textContent = "Reacts to the filters above. Hover a bar for the exact date and revenue.";
-      legendEl.innerHTML = '<span><span class="legend-swatch" style="background:var(--blue);"></span>Revenue</span>';
-      tableTitleEl.textContent = "Daily figures — Pareto (table view)";
-      renderDailyChart(months, filtered);
+    var g = state.revenueGranularity;
+
+    if (g === "daily" || g === "weekly") {
+      var label = g === "daily" ? "Day-to-Day" : "Week-to-Week";
+      titleEl.textContent = label + " Revenue";
+      if (target !== "expanded") noteEl.textContent = "Reacts to the filters above. Hover a bar for the exact " + (g === "daily" ? "date" : "week") + " and revenue.";
+      legendEl.innerHTML = '<span><span class="legend-swatch" style="background:var(--blue);"></span>Revenue</span><span><span class="legend-swatch legend-trend"></span>Trend</span>';
+      if (target !== "expanded") tableTitleEl.textContent = (g === "daily" ? "Daily" : "Weekly") + " figures — Pareto (table view)";
+      renderPeriodChart(months, filtered, g, svgEl, tooltipEl);
     } else {
       titleEl.textContent = "Month-to-Month Revenue";
-      noteEl.textContent = "Reacts to the filters above. Hover a bar for exact figures, including the year-over-year comparison.";
+      if (target !== "expanded") noteEl.textContent = "Reacts to the filters above. Hover a bar for exact figures, including the year-over-year comparison.";
       legendEl.innerHTML =
         '<span><span class="legend-swatch" style="background:var(--blue);"></span>Revenue</span>' +
         '<span><span class="legend-swatch legend-tick"></span>Same month last year</span>' +
+        '<span><span class="legend-swatch legend-trend"></span>Trend</span>' +
         '<span><span class="legend-mom mom-up-text">▲12%</span> / <span class="legend-mom mom-down-text">▼8%</span> month-over-month, above each bar</span>';
-      tableTitleEl.textContent = "Monthly figures (table view)";
-      renderChart(months, filtered);
+      if (target !== "expanded") tableTitleEl.textContent = "Monthly figures (table view)";
+      renderChart(months, filtered, svgEl, tooltipEl);
     }
   }
 
-  function renderDailyChart(months, filtered){
-    var svg = document.getElementById("chartSvg");
-    var tooltip = document.getElementById("chartTooltip");
+  function renderPeriodChart(months, filtered, period, svgEl, tooltipEl){
+    var svg = svgEl || document.getElementById("chartSvg");
+    var tooltip = tooltipEl || document.getElementById("chartTooltip");
     var requestGranularity = state.revenueGranularity;
     svg.innerHTML = "";
 
-    getDailyRows(months, filtered).then(function(result){
+    getPeriodRows(months, filtered, period).then(function(result){
       if (state.revenueGranularity !== requestGranularity) return;
       var rows = result.rows;
-      var W = 1000, H = 220, padL = 4, padR = 4, padB = 22, padT = 10;
+      var svgH = parseFloat(svg.getAttribute("viewBox").split(" ")[3]) || 220;
+      var W = 1000, H = svgH, padL = 4, padR = 4, padB = 22, padT = 10;
       var chartW = W - padL - padR, chartH = H - padT - padB;
       var n = rows.length || 1;
       var gap = n > 60 ? 0.5 : 2;
@@ -1726,15 +1844,14 @@
           svgParts.push('<text class="axis-label" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + monthLabel(r.date.slice(0,7)).split(" ")[0] + " " + d.getDate() + '</text>');
         }
       });
+      svgParts.push(trendLineSvg(rows.map(function(r){ return r.amount; }), padL, padT, chartW, chartH, maxVal));
       svg.innerHTML = svgParts.join("");
 
       svg.querySelectorAll(".bar").forEach(function(bar){
         bar.addEventListener("mousemove", function(e){
           var rect = svg.getBoundingClientRect();
-          var d = new Date(bar.getAttribute("data-date") + "T00:00:00");
           var val = parseFloat(bar.getAttribute("data-val"));
-          var dow = DOW_NAMES[d.getDay()];
-          tooltip.textContent = fmtDateShort(d) + " (" + dow + "): " + fmtMoney(val);
+          tooltip.textContent = periodDateLabel(bar.getAttribute("data-date"), period) + ": " + fmtMoney(val);
           tooltip.style.left = (e.clientX - rect.left) + "px";
           tooltip.style.top = (e.clientY - rect.top) + "px";
           tooltip.style.opacity = "1";
@@ -1742,6 +1859,15 @@
         bar.addEventListener("mouseleave", function(){ tooltip.style.opacity = "0"; });
       });
     });
+  }
+
+  function openChartModal(){
+    var modal = document.getElementById("chartModal");
+    modal.classList.add("open");
+    renderChartByGranularity(monthsInRange(), lastFiltered, "expanded");
+  }
+  function closeChartModal(){
+    document.getElementById("chartModal").classList.remove("open");
   }
 
   function renderMonthTable(months, filtered){
