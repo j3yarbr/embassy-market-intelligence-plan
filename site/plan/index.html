@@ -394,8 +394,13 @@
     </div>
     <div class="panel-body">
       <div class="table-toolbar" style="padding-left:0; padding-right:0;">
+        <div class="chip-row" id="monthGranularityToggle">
+          <div class="chip" data-granularity="monthly">Monthly</div>
+          <div class="chip" data-granularity="daily">Daily (Pareto)</div>
+        </div>
         <button class="clear-btn" id="exportMonthlyBtn" style="margin-top:0;">Export CSV</button>
       </div>
+      <div class="section-note" id="dailyParetoNote" style="display:none; margin-top:0;">Every day in the selected range, ranked by revenue — same concept as the Client Sales Pareto view below, applied to days instead of companies. Shows how concentrated revenue is: a few big days vs. spread evenly.</div>
       <div class="table-scroll">
         <table id="monthTable"><thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">Same Month Last Year</th><th class="num">YoY Δ</th></tr></thead><tbody></tbody></table>
       </div>
@@ -513,9 +518,12 @@
     expandedIndustries: new Set(),
     expandedMonths: new Set(),
     updateDataOpen: false,
-    productMixOpen: false
+    productMixOpen: false,
+    monthTableGranularity: "monthly"
   };
   var DATA = null;
+  var INVOICES_URL = "./invoices.json";
+  var invoicesCache = null; // fetched lazily, only when the Daily Pareto view is first opened
   var pendingUpdate = null; // {dataJson, invoicesJson} once Process File has run, until downloaded
   var NOT_IN_SAGE = "(Not in Sage)";
   var UNASSIGNED = "(Unassigned)";
@@ -720,7 +728,7 @@
       if (!row) return;
       var mk = row.getAttribute("data-month-key");
       if (state.expandedMonths.has(mk)) state.expandedMonths.delete(mk); else state.expandedMonths.add(mk);
-      renderMonthTable(monthsInRange(), lastFiltered);
+      renderMonthOrDailyTable(monthsInRange(), lastFiltered);
     });
     document.getElementById("clearFiltersBtn").addEventListener("click", function(e){
       e.stopPropagation();
@@ -761,7 +769,20 @@
       renderAll();
     });
     document.getElementById("exportClientsBtn").addEventListener("click", exportClientsCsv);
-    document.getElementById("exportMonthlyBtn").addEventListener("click", exportMonthlyCsv);
+    document.getElementById("exportMonthlyBtn").addEventListener("click", function(){
+      if (state.monthTableGranularity === "daily") exportDailyCsv(monthsInRange(), lastFiltered);
+      else exportMonthlyCsv();
+    });
+    document.querySelectorAll("#monthGranularityToggle .chip").forEach(function(chip){
+      chip.classList.toggle("selected", chip.getAttribute("data-granularity") === state.monthTableGranularity);
+      chip.addEventListener("click", function(){
+        state.monthTableGranularity = chip.getAttribute("data-granularity");
+        document.querySelectorAll("#monthGranularityToggle .chip").forEach(function(c){
+          c.classList.toggle("selected", c.getAttribute("data-granularity") === state.monthTableGranularity);
+        });
+        renderMonthOrDailyTable(monthsInRange(), lastFiltered);
+      });
+    });
     document.querySelectorAll("#groupByToggle .chip").forEach(function(chip){
       chip.classList.toggle("selected", chip.getAttribute("data-group-by") === state.groupBy);
       chip.addEventListener("click", function(){
@@ -860,7 +881,7 @@
     renderFilterSummary(months);
     renderKpis(filtered, months);
     renderChart(months, filtered);
-    renderMonthTable(months, filtered);
+    renderMonthOrDailyTable(months, filtered);
     renderClientTable(filtered);
   }
 
@@ -1540,6 +1561,110 @@
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);
     window.open(url, "_blank");
+  }
+
+  // Dispatches to the existing monthly YoY table or the new Daily Pareto view, based on the toggle.
+  // Both write into the same #monthTable/#tableViewSummary elements -- only one is ever shown at a time.
+  function renderMonthOrDailyTable(months, filtered){
+    if (state.monthTableGranularity === "daily") {
+      renderDailyPareto(months, filtered);
+    } else {
+      document.getElementById("dailyParetoNote").style.display = "none";
+      document.querySelector("#monthTable thead").innerHTML =
+        "<tr><th>Month</th><th class=\"num\">Revenue</th><th class=\"num\">Same Month Last Year</th><th class=\"num\">YoY Δ</th></tr>";
+      renderMonthTable(months, filtered);
+    }
+  }
+
+  function lastDayOfMonth(mk){
+    var parts = mk.split("-");
+    var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+    return new Date(y, m, 0).getDate();
+  }
+
+  function loadInvoicesOnce(){
+    if (invoicesCache) return Promise.resolve(invoicesCache);
+    return fetch(INVOICES_URL + "?t=" + Date.now(), {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(rows){ invoicesCache = rows; return rows; });
+  }
+
+  var DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  // Same concept as the Client Sales Pareto view (% of Total / Cumulative Total, ranked by revenue
+  // descending) applied to calendar days instead of companies -- shows whether revenue in the selected
+  // range is concentrated on a handful of big days or spread evenly. Uses invoices.json (real per-invoice
+  // dates) since data.json's `monthly` field is only month-granularity -- fetched lazily, only when this
+  // view is first opened, so a normal page load never pays for it.
+  function renderDailyPareto(months, filtered){
+    document.getElementById("dailyParetoNote").style.display = "block";
+    document.querySelector("#monthTable thead").innerHTML =
+      "<tr><th>Date</th><th class=\"num\">Revenue</th><th class=\"num\">% of Total</th><th class=\"num\">Cumulative</th><th class=\"num\">Cumulative %</th></tr>";
+    var tbody = document.querySelector("#monthTable tbody");
+    if (!months.length) {
+      tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">No months in range</td></tr>";
+      document.getElementById("tableViewSummary").textContent = "0 days";
+      return;
+    }
+    tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">Loading daily figures…</td></tr>";
+    var filteredCompanies = {};
+    filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
+    var fromDate = months[0] + "-01";
+    var toDate = months[months.length-1] + "-" + String(lastDayOfMonth(months[months.length-1])).padStart(2,"0");
+    var requestGranularity = state.monthTableGranularity;
+
+    loadInvoicesOnce().then(function(invoices){
+      // A slower toggle-back-and-forth could resolve out of order -- only render if Daily is still selected.
+      if (state.monthTableGranularity !== requestGranularity) return;
+      var byDay = {};
+      invoices.forEach(function(inv){
+        if (!filteredCompanies[inv.company]) return;
+        if (inv.date < fromDate || inv.date > toDate) return;
+        byDay[inv.date] = (byDay[inv.date] || 0) + inv.amount;
+      });
+      var rows = Object.keys(byDay).map(function(d){ return { date: d, amount: round2(byDay[d]) }; });
+      rows.sort(function(a,b){ return b.amount - a.amount; });
+      var total = rows.reduce(function(s,r){ return s + r.amount; }, 0);
+      var running = 0;
+      tbody.innerHTML = rows.length ? rows.map(function(r){
+        running += r.amount;
+        var dow = DOW_NAMES[new Date(r.date + "T00:00:00").getDay()];
+        return "<tr class=\"daily-row\"><td>" + fmtDateShort(new Date(r.date + "T00:00:00")) + " <span class=\"muted\">(" + dow + ")</span></td>" +
+          "<td class=\"num\">" + fmtMoney(r.amount) + "</td>" +
+          "<td class=\"num\">" + fmtPct(pctOf(r.amount, total)) + "</td>" +
+          "<td class=\"num\">" + fmtMoney(running) + "</td>" +
+          "<td class=\"num\">" + fmtPct(pctOf(running, total)) + "</td></tr>";
+      }).join("") : "<tr><td colspan=\"5\" class=\"muted\">No invoice activity in this range</td></tr>";
+      document.getElementById("tableViewSummary").textContent = rows.length + " day" + (rows.length===1?"":"s") + " with revenue";
+    }).catch(function(err){
+      tbody.innerHTML = "<tr><td colspan=\"5\" class=\"muted\">Couldn't load invoices.json (" + escapeHtml(err.message) + ")</td></tr>";
+    });
+  }
+
+  function exportDailyCsv(months, filtered){
+    var filteredCompanies = {};
+    filtered.forEach(function(c){ filteredCompanies[c.company] = true; });
+    var fromDate = months[0] + "-01";
+    var toDate = months[months.length-1] + "-" + String(lastDayOfMonth(months[months.length-1])).padStart(2,"0");
+    loadInvoicesOnce().then(function(invoices){
+      var byDay = {};
+      invoices.forEach(function(inv){
+        if (!filteredCompanies[inv.company]) return;
+        if (inv.date < fromDate || inv.date > toDate) return;
+        byDay[inv.date] = (byDay[inv.date] || 0) + inv.amount;
+      });
+      var rows = Object.keys(byDay).map(function(d){ return { date: d, amount: round2(byDay[d]) }; });
+      rows.sort(function(a,b){ return b.amount - a.amount; });
+      var total = rows.reduce(function(s,r){ return s + r.amount; }, 0);
+      var running = 0;
+      var out = [["Date","Day of Week","Revenue","% of Total","Cumulative","Cumulative %"]];
+      rows.forEach(function(r){
+        running += r.amount;
+        var dow = DOW_NAMES[new Date(r.date + "T00:00:00").getDay()];
+        out.push([r.date, dow, r.amount.toFixed(2), pctOf(r.amount, total).toFixed(1) + "%", running.toFixed(2), pctOf(running, total).toFixed(1) + "%"]);
+      });
+      downloadCsv("embassy-plan-daily_" + rangeSuffix() + ".csv", out);
+    });
   }
 
   function renderMonthTable(months, filtered){
