@@ -1,13 +1,13 @@
 # Plan
 
-**Status:** 🟢 v1 live · **Last updated:** 2026-09-10
+**Status:** 🟢 v1 live · **Last updated:** 2026-09-11
 **Live URL:** https://j3yarbr.github.io/embassy-market-intelligence-plan/plan/
 
-Part of the Embassy Market Intelligence Suite (see `README.md`). Plan is the "Morning Report" — a real financial dashboard modeled on the daily report Matt used in merchandising at a previous job (Walmart), keeping the suite accountable to real numbers instead of projections. Unlocked 2026-08-26, the day Matt got QuickBooks financials access.
+Part of the Embassy Market Intelligence Suite (see `README.md`). Plan is the "Morning Report" — originally a real financial dashboard modeled on the daily report Matt used in merchandising at a previous job (Walmart), keeping the suite accountable to real numbers instead of projections (unlocked 2026-08-26, the day Matt got QuickBooks financials access). **As of 2026-09-11, Plan is a multi-domain analytics page, not just financial** — see "Page structure: Financial / Campaign tabs" below for why and what changed.
 
 ## What it is
 
-A single-page dashboard (`site/plan/index.html`) with six parts:
+Two tabs, `Financial` and `Campaign` (added 2026-09-11 — see "Page structure" below), sharing one page shell (`site/plan/index.html`). The Financial tab is everything that was here before, unchanged:
 1. **KPI strip** — Revenue in Range, Clients with Revenue, Avg Revenue/Client, Month-to-Month Delta, YoY Change. All reactive to the filters below.
 2. **Month-to-Month Revenue chart** — a Monthly/Weekly/Daily toggle in the chart's own header (added 2026-09-10 — see below) drives both the chart and the collapsible "Monthly figures" table together, plus a corner button that expands the chart into a larger modal and a dashed trend line on every granularity. In Monthly mode: single-hue bar chart with a YoY reference tick + month-over-month labels, plus a table with a YoY column and a click-to-expand detail view per month — companies this month vs. the same month last year, top-5 sellers each year, a win-back list (real prior-year buyers with zero revenue this month, ranked by dollar size), and an "Export one-pager" button that opens a print-ready report for that month in a new tab (added 2026-09-09 — see its own section below). In Weekly/Daily mode: the chart shows one bar per week/day, chronological (the shape of revenue over time); the table becomes a Pareto — every period in the selected range ranked by revenue, same Pareto concept as the Client Sales table's Cumulative Total, applied to time periods (concentration, not shape).
 3. **Softgoods vs. Hardgoods** — collapsible, default closed. Revenue mix across apparel/headwear/non-apparel promotional product (all-time, last 6 months, last 90 days), a monthly trend chart, and per-segment leaders/losers by product. See its own section below.
@@ -15,7 +15,19 @@ A single-page dashboard (`site/plan/index.html`) with six parts:
 5. **Client Sales (CRM) table** — collapsible, default closed. Sortable, searchable, CSV-exportable. Defaults to grouping by **Industry** (ranked by revenue, expandable into companies) rather than a flat list — a toggle switches to a flat **Company** view. Includes `% of Total` and `Cumulative Total` columns (a real Pareto view when sorted by revenue). Company-family rollups (e.g. "Jack Henry" split across 3 Sage sub-accounts) group into one expandable row without merging the underlying data.
 6. **Update Data panel** — collapsible, upload a fresh **Sales by Customer Detail** export (.xlsx/.csv), parsed entirely client-side, always a full rebuild. As of 2026-09-01 this is the manual fallback path — the routine refresh now runs on its own (daily as of 2026-09-09, see below). Processing a file updates the whole page immediately as a local preview (fixed 2026-09-09 — see below), not just a download.
 
-Filters (Industry, Account Rep, month range) sit in a collapsible panel, default closed, live summary in the header — same standing rule as every collapsible in this suite.
+Filters (Industry, Account Rep, month range) sit in a collapsible panel, default closed, live summary in the header — same standing rule as every collapsible in this suite. Filters, KPIs, and everything else described above are scoped to the Financial tab only — the Campaign tab (below) has its own separate content and doesn't react to these.
+
+The **Campaign tab** is a different domain entirely: per-campaign email analytics from Sage's mailer feature (distinct from Promote, which is Matt's own ad-hoc campaign builder — see PROMOTE.md). See "Campaign tab" below for the full detail.
+
+## Page structure: Financial / Campaign tabs (added 2026-09-11)
+
+Matt found a real data source — Sage exports per-recipient tracking (opens, clicks, which products someone clicked) for the recurring mailer campaigns Embassy runs. He also mentioned website analytics is coming next, a third domain. Rather than stack another panel onto an already-long single financial page ("plan is getting packed," his words), he chose to restructure into tabs now, before a third domain shows up and forces the same restructure twice.
+
+**The module keeps the name Plan** — matches the suite's own tagline ("Plan keeps it accountable"), which fits financial and campaign accountability equally; only the page's internal structure changed, not its identity in the suite or its URL.
+
+**Mechanism** (`site/plan/index.html`): a `.page-tabs` bar (`#pageTabs`, two `.page-tab` buttons) sits between `<header>` and `.wrap`. Everything that existed before this change is wrapped in `<div class="tab-panel" id="financialTab">` — a pure layout wrap, no logic inside it changed. A sibling `<div class="tab-panel" id="campaignTab">` holds the new content. `switchTab(tab)` toggles which panel is visible, updates the active tab's styling, and reflects the choice in `location.hash` (`#campaign`) — `init()` checks the hash on load, so a direct link to `.../plan/#campaign` opens straight to that tab (verified on both a same-tab navigation and a genuinely fresh tab load — the two behave differently for a hash-only URL change, since a same-document hash change doesn't re-run `init()`, only a real navigation does; this only matters for automated testing, not for how a person actually opens a shared link).
+
+**Adding Website later**: no rework needed — a third `.page-tab` button, a third `.tab-panel` div, its own render function, called from `switchTab()`'s tab branch. The tab mechanism itself doesn't care how many domains there are.
 
 ## Data pipeline (not automated — rerun by hand on a fresh QuickBooks pull)
 
@@ -277,6 +289,45 @@ Matt's real ask, once he saw the manual panel in action: "select a file, upload,
 - New customer names (capped at 15 in the message, "+N more" beyond that — a bad-file scenario can otherwise dump hundreds of names inline and bury the warning that matters).
 - ⚠ Customers that had revenue before but have **zero** activity in this upload, by name (same 15-name cap) — they're about to be dropped from the dataset entirely, worth a real look before sending the result back for a deploy.
 - ⚠⚠ **Safety check**: if the new file has notably fewer customers or notably less total revenue than what's currently loaded (>15% drop either way), a loud warning fires before assuming the file is right — since every upload is a full replace now, a wrong file (an export accidentally scoped to a date range instead of "All Dates," or a stale download) would otherwise silently wipe real history instead of erroring out.
+
+## Campaign tab: Sage mailer-campaign analytics (added 2026-09-11)
+
+**Source data**: `_SAGE Monthly Special Campaigns\*.xls`, one file per mailer campaign Sage has sent, Matt exports these himself from Sage. Investigated directly (Excel COM, since these are legacy `.xls` — reads transparently like any other format Excel COM already handles in this suite): one row per recipient (~1,050/campaign, the whole active list every time), columns `Email Address, First Name, Last Name, Company, Acct Rep, [5 unused Custom Fields], CRMContact, Sent, SentTimestamp, Delivered, DeliveredTimestamp, Opened, OpenedTimestamp, Clicked, ClickedTimestamp, ClickedDetail, Bounced, Unsubscribed`. **No metadata rows in the file itself** — campaign date and name only exist in the filename (`"M.D.YYYY Campaign Name.xls"`, e.g. `4.10.2026 Spring Polo Sale.xls`; one date can have two files — `8.5.2026 August Tumbler Special 1.xls` / `8.5.2026 Take 2 - August Tumbler Special 2.xls` — so campaign identity is `date|name`, not date alone).
+
+**`ClickedDetail` is the standout field** — not just a click flag, it names the *exact product(s)* each recipient clicked (`"Product - Camo Premium Modern Trucker; Product - RICHARDSON Printed Five-Panel Trucker Cap"`), real per-contact, per-product interest. It also mixes in non-product links (`website.html`, `facebook.html`) — a real bug caught while building this: filtering by *excluding known non-product strings* let `facebook.html` show up as the #1 "product" with 73 clicks. Fixed by inverting the logic — only count entries that actually carry the `"Product - "` prefix, discard everything else, rather than blacklisting specific strings that could grow every time a new link type shows up in a future campaign.
+
+**Real cross-validation found while mapping this out**: both August Tumbler sends got zero clicks — independently matches what Monthly Specials Tracking already found for that same special (weak revenue, "too little data to call"). Two different data sources agreeing isn't a coincidence to wave off.
+
+**Pipeline** (`Phase 5 Market Intelligence - Plan\build_campaign_data.ps1`, same Excel-COM pattern as `build_plan_data.ps1`): reads **every** `.xls` in the folder fresh on each run — no marker-file/skip-unchanged like the financial pipeline. That's deliberate, not an inconsistency: a campaign's open/click numbers keep changing for days after a send if Matt re-exports an updated snapshot under the same filename, so "unchanged since last run" isn't a safe signal to skip on here. Parses date+name from each filename (`^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(.+)$`).
+
+Writes `site/plan/campaigns.json` (separate file from `data.json`, same reasoning as `invoices.json` — keeps the main payload independent, this is fetched lazily only when the Campaign tab is first opened, not on a normal page load):
+```json
+{
+  "generatedAt": "2026-09-11 09:09",
+  "campaigns": [
+    { "date": "2026-09-01", "name": "September Special - Camo & Quarter-Zips", "fileName": "9.1.2026 ....xls",
+      "recipients": 1048, "sent": 1048, "delivered": 956, "opened": 278, "clicked": 47, "bounced": 92, "unsubscribed": 0,
+      "openRate": 29.1, "clickRate": 4.9 }
+  ],
+  "productClicks": [
+    { "product": "Camo Premium Modern Trucker", "clicks": 44, "campaignCount": 1 }
+  ],
+  "campaignDetail": {
+    "2026-09-01|September Special - Camo & Quarter-Zips": [
+      { "email": "...", "company": "4 State Fence Company", "acctRep": "Kevin Greim", "opened": true, "clicked": true, "clickedProducts": ["Camo Premium Modern Trucker", "RICHARDSON Printed Five-Panel Trucker Cap"] }
+    ]
+  }
+}
+```
+`campaignDetail` only keeps recipients who **opened or clicked** — not the full ~1,050/campaign, since a "delivered, nothing else" row isn't useful to browse and the summary counts already cover it. Keyed by the same `date|name` compound key as campaign identity, since two sends can share a date.
+
+**Refresh**: `campaign_refresh.ps1` (wrapper, mirrors `daily_refresh.ps1`'s git branch → commit → merge → push flow) runs `build_campaign_data.ps1`, diffs `campaigns.json` against what's live, commits+pushes if changed. **No block-and-notify safety check** like the financial refresh has — this data isn't financial-stakes, a bad read just shows odd numbers on the tab rather than risking a wrong dollar figure going live. Scheduled task `plan-campaign-refresh`, daily check (same cadence choice Matt made for the financial refresh).
+
+**UI**: KPI strip (Campaigns Tracked, Avg Open Rate, Avg Click Rate, Best Open Rate) → campaign table (Date/Campaign/Delivered/Opened/Clicked/Bounced/Unsubscribed, most-recent-first, click a row to expand) → expand-row detail (who clicked what, who opened without clicking — reuses the Monthly figures table's expand-row visual pattern from the Financial tab) → a product-interest leaderboard aggregated across every campaign.
+
+**Explicitly not built yet, flagged as real fast-follows, not silently skipped**:
+- Cross-referencing campaign contacts against Plan's client revenue to build a "clicked but hasn't ordered it" list — Sage's `Company` field on these rows isn't guaranteed to name-match Plan's QuickBooks-sourced client names, the same fuzzy-match problem already documented elsewhere in this suite (see the Rollup aggregation / Known limitation sections above), and needs its own real investigation rather than a guessed join.
+- Any direct hand-off of an engaged-contact list into Promote's campaign builder.
 
 ## Default view: current fiscal year, not the full data span
 
