@@ -150,7 +150,10 @@
   .st-table td{padding:10px; border-bottom:1px solid var(--gray-line); vertical-align:top; font-size:0.82rem; white-space:normal;}
   .st-table tr:last-child td{border-bottom:none;}
   .st-month{font-weight:700; color:var(--navy-deep); white-space:nowrap;}
-  .st-label{font-weight:600; color:var(--navy-deep);}
+  .st-label{font-weight:600; color:var(--navy-deep); display:flex; align-items:center; gap:6px;}
+  .st-type-badge{font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:1px 6px; border-radius:999px; border:1px solid var(--border);}
+  .st-type-badge.category{color:var(--blue); border-color:var(--blue);}
+  .st-type-badge.sku{color:var(--gray-text);}
   .st-skus{font-size:0.68rem; color:var(--gray-text); margin-top:2px; font-variant-numeric:tabular-nums;}
   .st-tag{font-size:0.7rem; color:var(--gray-text); margin-top:3px;}
   .st-unresolved-note{font-size:0.7rem; color:var(--warn); background:var(--warn-bg); border-radius:8px; padding:6px 9px; margin-top:5px; line-height:1.4;}
@@ -1460,9 +1463,22 @@
       var tdLabel = document.createElement("td");
       var nameEl = document.createElement("div");
       nameEl.className = "st-label";
-      nameEl.textContent = s.label;
+      var nameTextEl = document.createElement("span");
+      nameTextEl.textContent = s.label;
+      nameEl.appendChild(nameTextEl);
+      var typeBadge = document.createElement("span");
+      typeBadge.className = "st-type-badge " + (s.type === "category" ? "category" : "sku");
+      typeBadge.textContent = s.type === "category" ? "Category" : "SKU";
+      nameEl.appendChild(typeBadge);
       tdLabel.appendChild(nameEl);
-      if (s.skus && s.skus.length) {
+      if (s.type === "category") {
+        if (s.matchPattern) {
+          var patEl = document.createElement("div");
+          patEl.className = "st-skus";
+          patEl.textContent = "Matches: " + s.matchPattern;
+          tdLabel.appendChild(patEl);
+        }
+      } else if (s.skus && s.skus.length) {
         var skuEl = document.createElement("div");
         skuEl.className = "st-skus";
         skuEl.textContent = s.skus.join(" + ");
