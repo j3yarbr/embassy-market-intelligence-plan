@@ -502,22 +502,6 @@
     </div>
   </div>
 
-  <div class="panel" id="specialsTrackingPanel">
-    <div class="panel-head" id="specialsTrackingHead">
-      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Monthly Specials Tracking</div>
-      <div class="panel-summary" id="specialsTrackingSummary"></div>
-    </div>
-    <div class="panel-body">
-      <div class="section-note" style="margin-top:10px;">Whether each month's special shows up as real revenue — same month and the month after, each measured against the average month for that product the rest of the year (same baseline for both, so they're a fair comparison). Recomputed automatically on every data refresh. To track next month's special, tell Claude Code what ran and which product it was — it resolves the SKU and adds it here, no rebuild needed beyond the routine one.</div>
-      <div class="table-scroll">
-        <table class="st-table" id="stTable">
-          <thead><tr><th>Month</th><th>Special</th><th class="num">This Month</th><th class="num">Month After</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <div class="panel" id="clientTablePanel">
     <div class="panel-head" id="clientTableHead">
       <div class="panel-title"><span class="panel-chevron">&#9656;</span> Client Sales (CRM)</div>
@@ -577,6 +561,22 @@
         <thead><tr><th>Date</th><th>Campaign</th><th class="num">Delivered</th><th class="num">Opened</th><th class="num">Clicked</th><th class="num">Bounced</th><th class="num">Unsubscribed</th></tr></thead>
         <tbody><tr><td colspan="7" class="muted">Loading campaign data…</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="panel" id="specialsTrackingPanel">
+    <div class="panel-head" id="specialsTrackingHead">
+      <div class="panel-title"><span class="panel-chevron">&#9656;</span> Monthly Specials Tracking</div>
+      <div class="panel-summary" id="specialsTrackingSummary"></div>
+    </div>
+    <div class="panel-body">
+      <div class="section-note" style="margin-top:10px;">Whether each month's special shows up as real revenue — same month and the month after, each measured against the average month for that product the rest of the year (same baseline for both, so they're a fair comparison). Recomputed automatically on every data refresh. To track next month's special, tell Claude Code what ran and which product it was — it resolves the SKU and adds it here, no rebuild needed beyond the routine one.</div>
+      <div class="table-scroll">
+        <table class="st-table" id="stTable">
+          <thead><tr><th>Month</th><th>Special</th><th class="num">This Month</th><th class="num">Month After</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
