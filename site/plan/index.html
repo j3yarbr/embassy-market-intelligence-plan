@@ -69,6 +69,20 @@
   header .brand span{color:#7ea6f2;}
   header .spacer{width:56px;}
 
+  /* Page-level tabs -- primary navigation between analytics domains (Financial/Campaign, Website later),
+     distinct from .chip/.chip-row which is secondary in-panel filtering. */
+  .page-tabs{
+    display:flex; gap:2px; max-width:1180px; margin:0 auto; padding:0 20px;
+    border-bottom:1px solid var(--gray-line); background:var(--white);
+  }
+  .page-tab{
+    appearance:none; border:none; background:none; cursor:pointer;
+    padding:13px 18px 11px; font-size:0.86rem; font-weight:700; color:var(--gray-text);
+    border-bottom:3px solid transparent; margin-bottom:-1px;
+  }
+  .page-tab:hover{color:var(--navy-deep);}
+  .page-tab.active{color:var(--blue); border-bottom-color:var(--blue);}
+
   .wrap{max-width:1180px; margin:0 auto; padding:20px; min-width:0;}
 
   /* KPI strip */
@@ -326,7 +340,14 @@
   <div class="spacer"></div>
 </header>
 
+<div class="page-tabs" id="pageTabs">
+  <button class="page-tab" data-tab="financial">Financial</button>
+  <button class="page-tab" data-tab="campaign">Campaign</button>
+</div>
+
 <div class="wrap">
+
+<div class="tab-panel" id="financialTab">
 
   <div class="kpi-row" id="kpiRow"></div>
 
@@ -544,6 +565,36 @@
 
 </div>
 
+<div class="tab-panel" id="campaignTab" style="display:none;">
+
+  <div class="kpi-row" id="campaignKpiRow"></div>
+
+  <div class="section-title" style="margin-top:26px;">Campaign Performance</div>
+  <div class="section-note">Every mailer campaign Sage has tracked, most recent first. Click a row to see who engaged and what they clicked.</div>
+  <div class="table-card">
+    <div class="table-scroll">
+      <table id="campaignTable">
+        <thead><tr><th>Date</th><th>Campaign</th><th class="num">Delivered</th><th class="num">Opened</th><th class="num">Clicked</th><th class="num">Bounced</th><th class="num">Unsubscribed</th></tr></thead>
+        <tbody><tr><td colspan="7" class="muted">Loading campaign data…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-title">Product Interest — Across All Campaigns</div>
+  <div class="section-note">Every product a recipient clicked through to, ranked by total clicks. What's actually resonating, not just what you featured.</div>
+  <div class="table-card">
+    <div class="table-scroll">
+      <table id="productClicksTable">
+        <thead><tr><th>Product</th><th class="num">Total Clicks</th><th class="num">Campaigns</th></tr></thead>
+        <tbody><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-meta" id="campaignFooterMeta"></div>
+
+</div>
+
 <script>
 (function(){
   var DATA_URL = "./data.json";
@@ -564,11 +615,15 @@
     expandedMonths: new Set(),
     updateDataOpen: false,
     productMixOpen: false,
-    revenueGranularity: "monthly"
+    revenueGranularity: "monthly",
+    activeTab: "financial",
+    expandedCampaigns: new Set()
   };
   var DATA = null;
   var INVOICES_URL = "./invoices.json";
   var invoicesCache = null; // fetched lazily, only when the Daily Pareto view is first opened
+  var CAMPAIGNS_URL = "./campaigns.json";
+  var campaignsCache = null; // fetched lazily, only when the Campaign tab is first opened
   var pendingUpdate = null; // {dataJson, invoicesJson} once Process File has run, until downloaded
   var NOT_IN_SAGE = "(Not in Sage)";
   var UNASSIGNED = "(Unassigned)";
@@ -608,6 +663,102 @@
     document.getElementById("footerMeta").textContent =
       "Data generated " + DATA.meta.generatedAt + " from QuickBooks Income by Customer + Transaction List, joined to the Sage active client export. " +
       DATA.meta.matchedClients + " of " + DATA.meta.totalClients + " customers matched to an active Sage client.";
+
+    // A direct link to #campaign opens straight to that tab.
+    if (location.hash === "#campaign") switchTab("campaign"); else switchTab("financial");
+  }
+
+  function loadCampaignsOnce(){
+    if (campaignsCache) return Promise.resolve(campaignsCache);
+    return fetch(CAMPAIGNS_URL + "?t=" + Date.now(), {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(d){ campaignsCache = d; return d; })
+      .catch(function(err){
+        document.querySelector("#campaignTable tbody").innerHTML = "<tr><td colspan='7' class='muted'>Couldn't load campaigns.json (" + escapeHtml(err.message) + ")</td></tr>";
+        throw err;
+      });
+  }
+
+  function campaignDateLabel(dateStr){
+    var d = new Date(dateStr + "T00:00:00");
+    var names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return names[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+  }
+
+  var CAMPAIGN_DETAIL_LIMIT = 20;
+  function campaignDetailHtml(key){
+    var list = (campaignsCache.campaignDetail && campaignsCache.campaignDetail[key]) ? campaignsCache.campaignDetail[key] : [];
+    // Clicked recipients first (real product interest), then opened-only -- each sorted by company for scanability.
+    var clicked = list.filter(function(r){ return r.clicked; }).sort(function(a,b){ return a.company.localeCompare(b.company); });
+    var openedOnly = list.filter(function(r){ return r.opened && !r.clicked; }).sort(function(a,b){ return a.company.localeCompare(b.company); });
+
+    function clickedRowHtml(r){
+      var products = r.clickedProducts && r.clickedProducts.length ? r.clickedProducts.map(function(p){ return escapeHtml(p); }).join(", ") : "";
+      return "<div class='month-detail-sku-item'><span class='month-detail-sku-name'>" + escapeHtml(r.company || r.email) +
+        (r.acctRep ? "<span class='sku-code'>" + escapeHtml(r.acctRep) + "</span>" : "") + "</span>" +
+        "<span class='month-detail-sku-amt' style='font-weight:400; color:var(--gray-text); text-align:right; white-space:normal; max-width:55%;'>" + products + "</span></div>";
+    }
+
+    var clickedHtml = clicked.length ? clicked.slice(0, CAMPAIGN_DETAIL_LIMIT).map(clickedRowHtml).join("") : "<div class='muted'>No clicks on this campaign</div>";
+    var clickedMore = clicked.length > CAMPAIGN_DETAIL_LIMIT ? "<div class='muted' style='margin-top:4px;'>+" + (clicked.length - CAMPAIGN_DETAIL_LIMIT) + " more not shown</div>" : "";
+    var openedHtml = openedOnly.length ? openedOnly.slice(0, CAMPAIGN_DETAIL_LIMIT).map(function(r){ return "<div class='month-detail-item'><span>" + escapeHtml(r.company || r.email) + "</span></div>"; }).join("") : "<div class='muted'>None</div>";
+    var openedMore = openedOnly.length > CAMPAIGN_DETAIL_LIMIT ? "<div class='muted' style='margin-top:4px;'>+" + (openedOnly.length - CAMPAIGN_DETAIL_LIMIT) + " more not shown</div>" : "";
+
+    return "<div class='month-detail-list'><div class='month-detail-list-title'>Clicked (" + clicked.length + ") — who, and what they clicked</div>" + clickedHtml + clickedMore + "</div>" +
+      "<div class='month-detail-list' style='margin-top:14px;'><div class='month-detail-list-title'>Opened, no click (" + openedOnly.length + ")</div>" + openedHtml + openedMore + "</div>";
+  }
+
+  function renderCampaignTab(){
+    var d = campaignsCache;
+    if (!d) return;
+    var campaigns = d.campaigns || [];
+
+    var kpiEl = document.getElementById("campaignKpiRow");
+    var avgOpen = campaigns.length ? (campaigns.reduce(function(s,c){ return s+c.openRate; },0) / campaigns.length) : 0;
+    var avgClick = campaigns.length ? (campaigns.reduce(function(s,c){ return s+c.clickRate; },0) / campaigns.length) : 0;
+    var best = campaigns.slice().sort(function(a,b){ return b.openRate - a.openRate; })[0];
+    kpiEl.innerHTML =
+      '<div class="kpi-tile"><div class="kpi-label">Campaigns Tracked</div><div class="kpi-value">' + campaigns.length + '</div><div class="kpi-sub">since ' + (campaigns.length ? campaignDateLabel(campaigns[0].date) : "—") + '</div></div>' +
+      '<div class="kpi-tile"><div class="kpi-label">Avg Open Rate</div><div class="kpi-value">' + avgOpen.toFixed(1) + '%</div><div class="kpi-sub">of delivered</div></div>' +
+      '<div class="kpi-tile"><div class="kpi-label">Avg Click Rate</div><div class="kpi-value">' + avgClick.toFixed(1) + '%</div><div class="kpi-sub">of delivered</div></div>' +
+      '<div class="kpi-tile"><div class="kpi-label">Best Open Rate</div><div class="kpi-value compact">' + (best ? escapeHtml(best.name) : "—") + '</div><div class="kpi-sub">' + (best ? best.openRate.toFixed(1) + "%" : "") + '</div></div>';
+
+    var tbody = document.querySelector("#campaignTable tbody");
+    var rows = campaigns.slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    tbody.innerHTML = rows.length ? rows.map(function(c){
+      var key = c.date + "|" + c.name;
+      var expanded = state.expandedCampaigns.has(key);
+      var row = "<tr class='month-row campaign-row' data-campaign-key='" + escapeHtml(key) + "'>" +
+        "<td><span class='group-toggle'>" + (expanded ? "▾" : "▸") + "</span>" + campaignDateLabel(c.date) + "</td>" +
+        "<td>" + escapeHtml(c.name) + "</td>" +
+        "<td class='num'>" + c.delivered.toLocaleString() + "</td>" +
+        "<td class='num'>" + c.opened.toLocaleString() + " <span class='muted'>(" + c.openRate + "%)</span></td>" +
+        "<td class='num'>" + c.clicked.toLocaleString() + " <span class='muted'>(" + c.clickRate + "%)</span></td>" +
+        "<td class='num'>" + c.bounced.toLocaleString() + "</td>" +
+        "<td class='num'>" + c.unsubscribed.toLocaleString() + "</td></tr>";
+      if (!expanded) return row;
+      return row + "<tr class='month-detail-row'><td colspan='7'>" + campaignDetailHtml(key) + "</td></tr>";
+    }).join("") : "<tr><td colspan='7' class='muted'>No campaign data</td></tr>";
+
+    document.getElementById("campaignFooterMeta").textContent =
+      "Data generated " + d.generatedAt + " from Sage mailer-campaign exports (" + campaigns.length + " campaign" + (campaigns.length===1?"":"s") + " tracked).";
+
+    var pcBody = document.querySelector("#productClicksTable tbody");
+    var pc = d.productClicks || [];
+    pcBody.innerHTML = pc.length ? pc.map(function(p){
+      return "<tr><td>" + escapeHtml(p.product) + "</td><td class='num'>" + p.clicks.toLocaleString() + "</td><td class='num'>" + p.campaignCount + "</td></tr>";
+    }).join("") : "<tr><td colspan='3' class='muted'>No product-click data</td></tr>";
+  }
+
+  function switchTab(tab){
+    state.activeTab = tab;
+    document.querySelectorAll(".page-tab").forEach(function(btn){
+      btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
+    });
+    document.getElementById("financialTab").style.display = tab === "financial" ? "" : "none";
+    document.getElementById("campaignTab").style.display = tab === "campaign" ? "" : "none";
+    location.hash = tab === "campaign" ? "#campaign" : "";
+    if (tab === "campaign" && !campaignsCache) loadCampaignsOnce().then(renderCampaignTab);
   }
 
   function monthLabel(mk){
@@ -743,6 +894,9 @@
   }
 
   function bindEvents(){
+    document.querySelectorAll(".page-tab").forEach(function(btn){
+      btn.addEventListener("click", function(){ switchTab(btn.getAttribute("data-tab")); });
+    });
     document.getElementById("filterPanelHead").addEventListener("click", function(){
       state.filtersOpen = !state.filtersOpen;
       document.getElementById("filterPanel").classList.toggle("open", state.filtersOpen);
@@ -774,6 +928,13 @@
       var mk = row.getAttribute("data-month-key");
       if (state.expandedMonths.has(mk)) state.expandedMonths.delete(mk); else state.expandedMonths.add(mk);
       renderTableByGranularity(monthsInRange(), lastFiltered);
+    });
+    document.querySelector("#campaignTable tbody").addEventListener("click", function(e){
+      var row = e.target.closest("tr.campaign-row");
+      if (!row) return;
+      var key = row.getAttribute("data-campaign-key");
+      if (state.expandedCampaigns.has(key)) state.expandedCampaigns.delete(key); else state.expandedCampaigns.add(key);
+      renderCampaignTab();
     });
     document.getElementById("clearFiltersBtn").addEventListener("click", function(e){
       e.stopPropagation();
