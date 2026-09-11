@@ -1,6 +1,6 @@
 # Promote
 
-**Status:** 🟢 v1 live, targeting 9/1 · **Last updated:** 2026-08-27
+**Status:** 🟢 v1 live, targeting 9/1 · **Last updated:** 2026-09-11
 **Live URL:** https://j3yarbr.github.io/embassy-market-intelligence-plan/promote/
 
 Part of the Embassy Market Intelligence Suite (see `README.md`). Promote is the Campaign & Outreach Engine — turning digital attention into orders via targeted flyer/email campaigns. Rebuilt as a web app 2026-08-27, prompted directly by the concentration/one-and-done-client findings surfaced in Plan (see `PLAN.md`'s last section) — Matt connected "we need to work smarter, not just cold-walk-in more" to finally prioritizing this rebuild, with a hard 9/1 deadline.
@@ -36,6 +36,16 @@ Matt asked how recipient emails get pulled in, worried about accidentally BCC-in
 Rather than rely on "be careful," **Test Mode makes it structural**. `matchingClients()` is the single choke point every recipient-related function goes through — when Test Mode is on (the default), it returns `[]` unconditionally and `recipientEmails()` falls back to the 7 internal `@embassygear.com` addresses from `senders.json`, regardless of which industries are selected. Verified directly: selected Manufacturing (121 real contacts) with Test Mode on, launched a real campaign, and confirmed the downloaded `.eml`'s Bcc line held only the 7 internal addresses. Subject line also gets a `[TEST]` prefix while it's on. A banner (green "Test Mode: ON" / amber "LIVE MODE" warning) makes the current state unmistakable before every launch.
 
 **When extending this file**: any new function that needs the recipient list should call `recipientEmails()`, never read `DATA.clients` directly — that's what keeps Test Mode airtight.
+
+## Plan special-tracking on launch — added 2026-09-11
+
+Matt's stated long-term target for how the suite's specials tracking should work: "User inputs flyer into Promote to create campaign -> campaign is logged into Plan with the important details and financial tracking begins." This is step one toward that — Promote's campaign creation is the natural front door (it already has the flyer), the gap was that launching never captured *which product* a campaign was about, so there was nothing to hand off to [[project-plan-module|Plan's Monthly Specials Tracking]].
+
+**New optional panel, "Track as a Plan Special"** (same collapsible `.panel` pattern as Target Industries), off by default — checking it exposes: Month (defaults to the current month), Special Label, Tracking Type (SKU vs storewide Category — mirrors the `sku`/`category` split just added to `specials_registry.json`, see `PLAN.md`), and either a SKU list or a regex match pattern depending on type. Deliberately does **not** gate the main Launch button — a campaign that isn't a tracked special (most of Promote's own ad hoc outreach) launches exactly as before if the section is left untouched.
+
+**On Launch, when tracking is on**: validated first (month + label + the type-appropriate field, checked *before* anything downloads — an incomplete tracking entry shouldn't leave a campaign half-launched), then a second file downloads alongside the `.eml`: a ready-to-use `specials_registry.json`-shaped entry (`specials_registry_entry_<month>.json`). **This is still prepare-and-hand-off, not a live write** — same constraint as the Update Data panel and every other "no backend" spot in this suite (see `README.md`'s Suite-level note, `BACKLOG.md`'s consolidated API section). Matt hands the file off (or just says he launched it) to get it merged into the real registry.
+
+**Explicitly scoped narrow, real open question still unanswered**: whether Promote is meant to become the front door even for the recurring SAGE-mailed monthly specials (which today originate from a supplier email + a separate flyer, not Promote), or stays a parallel path for Matt's own ad hoc campaigns while SAGE keeps running independently. Matt's answer so far: "I want to build ad hoc or upload if i didn't build, but the default is to go through promote and promote drives what is in the specials analysis section" — read as Promote being the *default* origination point, with the existing chat-driven/manual registry path staying as the fallback for anything not built here (a SAGE-only send, etc.) — not as Promote taking over SAGE's actual sending mechanism. Revisit if that reading turns out wrong once this gets used for real.
 
 ## Known open items
 
