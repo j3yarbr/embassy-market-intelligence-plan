@@ -169,9 +169,15 @@ Specials aren't derivable from the sales data itself — nothing marks a transac
 
 **Registry entry shape:**
 ```json
-{ "month": "2026-06", "label": "112PM Heather Grey/Flag", "skus": ["HATS_112PM"], "note": "" }
+{ "month": "2026-06", "label": "112PM Heather Grey/Flag", "type": "sku", "skus": ["HATS_112PM"], "note": "" }
 ```
 `skus` can list more than one code (e.g. a special spanning two SKUs); an empty `skus` array marks an unresolved entry — the tab still lists it, with `note` explaining why (see March's umbrella below), so a gap stays visible rather than silently missing.
+
+**`type: "category"` — added 2026-09-11, for specials that aren't one SKU or a tight prefix family.** Prompted by September's "Camo & Quarter-Zips" campaign (real product, confirmed via Kevin Greim's internal supplier email forwarding the September heads-up: "camo hats and a sale on ALL of our quarter zips") — checking the real sales export directly found "all our quarter zips" spans at least 5 unrelated SKUs across different brands (Comfort Colors, a generic fleece code, Spirit, TravisMathew, Port Authority) with no shared prefix the way `HATS_112.` covers the whole 112-hat family. A category entry uses `matchPattern` (a case-insensitive regex) instead of `skus`, matched against each transaction's free-text Description:
+```json
+{ "month": "2026-09", "label": "Camo & Quarter-Zips", "type": "category", "matchPattern": "(?i)quarter.?zip|camo", "skus": [], "note": "" }
+```
+`Get-CategoryGroupMonthTotal` in `build_plan_data.ps1` sums matching rows fresh per call (not pre-aggregated like the SKU path, since the matching set isn't known ahead of time). Matt's own framing for why this is a separate tagged type rather than folded into the same matching logic: track category-type specials independently so it's visible whether category-level tracking is trustworthy, not assumed to work the same way exact-SKU tracking does. **Real finding from testing this against live data before registering anything**: a loose pattern like plain `"quarter zip"` is too broad on its own — it matched ~90 different everyday SKUs and $150K+ of routine year-round sales across all of 2025–26, since quarter-zips are a regular product line, not exclusive to September's promotional push. A usable category pattern needs to be scoped tighter than the category name alone (e.g. to the specific styles/colorways actually on sale) — reinforces why September itself stays unregistered until the actual flyer with real SKU/style detail arrives, rather than guessing a pattern from marketing copy. UI shows a small SKU/Category badge next to the label (`.st-type-badge`) so the two tracking methods are visually distinguishable at a glance.
 
 **To add next month's special**: tell Claude Code what ran and which product it was. It resolves the plain description to a real SKU via the product catalog (same lookup Softgoods/Hardgoods' naming join uses) and appends an entry — the tab picks it up on the next routine pipeline run, no separate step.
 
